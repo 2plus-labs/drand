@@ -32,17 +32,18 @@ func (d *drandProxy) CoSign(ctx context.Context, msg string, signature string, r
 		return nil, errors.New("unable to convert to beacon process")
 	}
 
-	newBeacon := bp.beacon.FinalBeacon(cosignResp.GetRound())
-	if newBeacon == nil {
-		return nil, errors.New("unable to co-sign in the time")
-	}
+	result := make(chan chain.Beacon, 1)
+	bp.beacon.RegisterCallback(cosignResp.GetRound(), result)
+	res := <-result
 
 	buff, _ := bp.group.PublicKey.Key().MarshalBinary()
 
+	bp.beacon.DeleteCallback(cosignResp.GetRound())
+
 	return &client.CoSignData{
-		Msg:       string(newBeacon.Message),
-		Sig:       newBeacon.Signature,
-		Random:    newBeacon.Randomness(),
+		Msg:       string(res.Message),
+		Sig:       res.Signature,
+		Random:    res.Randomness(),
 		PublicKey: buff,
 	}, nil
 }

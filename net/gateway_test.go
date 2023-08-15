@@ -34,6 +34,11 @@ type testRandomnessServer struct {
 	round uint64
 }
 
+func (t *testRandomnessServer) CoSign(ctx context.Context, request *drand.CoSignRequest) (*drand.CoSignResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (t *testRandomnessServer) PublicRand(context.Context, *drand.PublicRandRequest) (*drand.PublicRandResponse, error) {
 	return &drand.PublicRandResponse{Round: t.round}, nil
 }

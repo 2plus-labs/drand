@@ -39,10 +39,10 @@ type chainStore struct {
 	beaconStoredAgg chan *chain.Beacon
 
 	// return result co-sign
-	cosignResult map[uint64]*chain.Beacon
+	cbCache *CallbackCache
 }
 
-func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vault, store chain.Store, t *ticker) (*chainStore, error) {
+func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vault, store chain.Store, t *ticker, cbCache *CallbackCache) (*chainStore, error) {
 	// we write some stats about the timing when new beacon is saved
 	ds := newDiscrepancyStore(store, l, v.GetGroup(), cf.Clock)
 
@@ -91,7 +91,7 @@ func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vau
 		newPartials:     make(chan partialInfo, defaultPartialChanBuffer),
 		catchupBeacons:  make(chan *chain.Beacon, 1),
 		beaconStoredAgg: make(chan *chain.Beacon, defaultNewBeaconBuffer),
-		cosignResult:    make(map[uint64]*chain.Beacon, defaultNewBeaconBuffer),
+		cbCache:         cbCache,
 	}
 	// we add callbacks to notify each time a final beacon is stored on the
 	// database so to update the latest view
@@ -101,12 +101,10 @@ func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vau
 		}
 		cs.beaconStoredAgg <- b
 		if cs.conf.Group.Period == 0 {
-			cs.syncm.mu.Lock()
-			if len(cs.cosignResult) > defaultNewBeaconBuffer {
-				cs.cosignResult = make(map[uint64]*chain.Beacon, defaultNewBeaconBuffer)
+			callback := cs.cbCache.Get(b.GetRound())
+			if callback != nil {
+				callback <- *b
 			}
-			cs.cosignResult[b.GetRound()] = b
-			cs.syncm.mu.Unlock()
 		}
 	})
 	// TODO maybe look if it's worth having multiple workers there
@@ -380,13 +378,6 @@ func (c *chainStore) signAndSend(packet *drand.PartialBeaconPacket) {
 			//metrics.SuccessfulPartial(beaconID, i.Address())
 		}(*idt)
 	}
-}
-
-func (c *chainStore) ExistedDataRound(round uint64) (*chain.Beacon, bool) {
-	c.syncm.mu.Lock()
-	defer c.syncm.mu.Unlock()
-	value, ok := c.cosignResult[round]
-	return value, ok
 }
 
 type partialInfo struct {

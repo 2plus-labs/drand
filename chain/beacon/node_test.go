@@ -37,6 +37,11 @@ type testBeaconServer struct {
 	h *Handler
 }
 
+func (t *testBeaconServer) CoSign(ctx context.Context, request *drand.CoSignRequest) (*drand.CoSignResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (t *testBeaconServer) PartialBeacon(c context.Context, in *drand.PartialBeaconPacket) (*drand.Empty, error) {
 	t.Lock()
 	defer t.Unlock()

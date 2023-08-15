@@ -59,6 +59,7 @@ type Handler struct {
 	stopped   bool
 	version   commonutils.Version
 	l         log.Logger
+	cbCache   *CallbackCache
 }
 
 // NewHandler returns a fresh handler ready to serve and create randomness
@@ -80,12 +81,15 @@ func NewHandler(c net.ProtocolClient, s chain.Store, conf *Config, l log.Logger,
 		return nil, err
 	}
 
+	// init callback cache
+	cbCache := NewCallbackCache()
+
 	// Init when period is non-zero
 	var ticker *ticker
 	if conf.Group.Period > 0 {
 		ticker = newTicker(conf.Clock, conf.Group.Period, conf.Group.GenesisTime)
 	}
-	store, err := newChainStore(l, conf, c, v, s, ticker)
+	store, err := newChainStore(l, conf, c, v, s, ticker, cbCache)
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +108,7 @@ func NewHandler(c net.ProtocolClient, s chain.Store, conf *Config, l log.Logger,
 		l:                l,
 		version:          version,
 		thresholdMonitor: metrics.NewThresholdMonitor(conf.Group.ID, l, conf.Group.Threshold),
+		cbCache:          cbCache,
 	}
 	return handler, nil
 }
@@ -606,21 +611,14 @@ func (h *Handler) CoSign(beaconID string, round uint64, msg []byte) error {
 
 }
 
-func (h *Handler) FinalBeacon(round uint64) *chain.Beacon {
-	i := 0
-	for start := time.Now(); ; {
-		if i%1000 == 0 {
-			if time.Since(start) > time.Second {
-				break
-			}
-			if value, ok := h.chain.ExistedDataRound(round); ok {
-				h.l.Debugw("finalBeacon", "i", i)
-				return value
-			}
-		}
-		i++
-	}
-	return nil
+// RegisterCallback register callback for beacon
+func (h *Handler) RegisterCallback(round uint64, cb chan chain.Beacon) {
+	h.cbCache.Add(round, cb)
+}
+
+// DeleteCallback callback for beacon
+func (h *Handler) DeleteCallback(round uint64) {
+	h.cbCache.Delete(round)
 }
 
 // ProcessPartialBeaconNoPeriod handler partial of beacon with no period time
