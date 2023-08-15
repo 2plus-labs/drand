@@ -252,7 +252,9 @@ func (s *setupManager) createAndSend(keys []*key.Identity) {
 		genesis := s.clock.Now().Add(totalDKG).Unix()
 		// round the genesis time to a period modulo
 		ps := int64(s.beaconPeriod.Seconds())
-		genesis += (ps - genesis%ps)
+		if ps > 0 {
+			genesis += (ps - genesis%ps)
+		}
 		group = key.NewGroup(keys, s.thr, genesis, s.beaconPeriod, s.catchupPeriod, s.scheme, s.beaconID)
 	} else {
 		genesis := s.oldGroup.GenesisTime

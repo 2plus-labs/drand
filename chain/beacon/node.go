@@ -80,7 +80,11 @@ func NewHandler(c net.ProtocolClient, s chain.Store, conf *Config, l log.Logger,
 		return nil, err
 	}
 
-	ticker := newTicker(conf.Clock, conf.Group.Period, conf.Group.GenesisTime)
+	// Init when period is non-zero
+	var ticker *ticker
+	if conf.Group.Period > 0 {
+		ticker = newTicker(conf.Clock, conf.Group.Period, conf.Group.GenesisTime)
+	}
 	store, err := newChainStore(l, conf, c, v, s, ticker)
 	if err != nil {
 		return nil, err
@@ -110,6 +114,11 @@ func (h *Handler) ProcessPartialBeacon(c context.Context, p *proto.PartialBeacon
 	addr := net.RemoteAddress(c)
 	pRound := p.GetRound()
 	h.l.Debugw("", "received", "request", "from", addr, "round", pRound)
+
+	// check support for beacon with no period
+	if h.conf.Group.Period == 0 {
+		return h.ProcessPartialBeaconNoPeriod(p, addr)
+	}
 
 	nextRound, _ := chain.NextRound(h.conf.Clock.Now().Unix(), h.conf.Group.Period, h.conf.Group.GenesisTime)
 	currentRound := nextRound - 1
@@ -204,9 +213,12 @@ func (h *Handler) Start() error {
 	h.Unlock()
 
 	h.thresholdMonitor.Start()
-	_, tTime := chain.NextRound(h.conf.Clock.Now().Unix(), h.conf.Group.Period, h.conf.Group.GenesisTime)
-	h.l.Infow("", "beacon", "start", "scheme", h.crypto.Name)
-	go h.run(tTime)
+	// check period time before start new beacon
+	if h.conf.Group.Period > 0 {
+		_, tTime := chain.NextRound(h.conf.Clock.Now().Unix(), h.conf.Group.Period, h.conf.Group.GenesisTime)
+		h.l.Infow("", "beacon", "start", "scheme", h.crypto.Name)
+		go h.run(tTime)
+	}
 
 	return nil
 }
@@ -534,6 +546,129 @@ func (h *Handler) ValidateChain(ctx context.Context, upTo uint64, cb func(r, u u
 // CorrectChain tells the sync manager to fetch the invalid beacon from its peers.
 func (h *Handler) CorrectChain(ctx context.Context, faultyBeacons []uint64, peers []net.Peer, cb func(r, u uint64)) error {
 	return h.chain.RunReSync(ctx, faultyBeacons, peers, cb)
+}
+
+func (h *Handler) CoSign(beaconID string, round uint64, msg []byte) error {
+	ctx := context.Background()
+	msgRaw := h.crypto.DigestBeacon(&chain.Beacon{
+		Round:   round,
+		Message: msg,
+	})
+	h.l.Debugw("", "broadcast_partial", round, "msg", shortSigStr(msg))
+	currSig, err := h.crypto.SignPartial(msgRaw)
+	if err != nil {
+		h.l.Fatal("beacon_round", "err creating signature", "err", err, "round", round)
+		return err
+	}
+	h.l.Debugw("", "broadcast_partial", round, "raw_msg", shortSigStr(msgRaw))
+	metadata := common.NewMetadata(h.version.ToProto())
+	metadata.BeaconID = beaconID
+
+	packet := &proto.PartialBeaconPacket{
+		Round:             round,
+		PreviousSignature: nil,
+		PartialSig:        currSig,
+		Message:           msg,
+		Metadata:          metadata,
+	}
+
+	h.chain.NewValidPartial(h.addr, packet)
+	for _, id := range h.crypto.GetGroup().Nodes {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
+		idt := id.Identity
+		if h.conf.Public.Address() == id.Address() {
+			continue
+		}
+		go func(i key.Identity) {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			h.l.Debugw("sign and send partial", "round", packet.GetRound(), "to", i.Address())
+			err := h.client.PartialBeacon(ctx, &i, packet)
+			if err != nil {
+				h.thresholdMonitor.ReportFailure(beaconID, i.Address())
+				h.l.Errorw("error sending partial", "round", packet.GetRound(), "err", err, "to", i.Address())
+				return
+			}
+			metrics.SuccessfulPartial(beaconID, i.Address())
+		}(*idt)
+	}
+
+	return nil
+
+}
+
+func (h *Handler) FinalBeacon(round uint64) *chain.Beacon {
+	i := 0
+	for start := time.Now(); ; {
+		if i%1000 == 0 {
+			if time.Since(start) > time.Second {
+				break
+			}
+			if value, ok := h.chain.ExistedDataRound(round); ok {
+				h.l.Debugw("finalBeacon", "i", i)
+				return value
+			}
+		}
+		i++
+	}
+	return nil
+}
+
+// ProcessPartialBeaconNoPeriod handler partial of beacon with no period time
+func (h *Handler) ProcessPartialBeaconNoPeriod(p *proto.PartialBeaconPacket, addr string) (*proto.Empty, error) {
+	signMsg := h.crypto.DigestBeacon(&chain.Beacon{Round: p.GetRound(), Message: p.GetMessage()})
+	h.l.Debugw("", "received", "request", "from", addr, "round", p.GetRound(), "msg", shortSigStr(p.GetMessage()))
+	idx, _ := h.crypto.ThresholdScheme.IndexOf(p.GetPartialSig())
+	if idx < 0 {
+		return nil, fmt.Errorf("invalid index %d in partial with msg %v partial_round %v", idx, shortSigStr(signMsg), p.GetRound())
+	}
+
+	node := h.crypto.GetGroup().Node(uint32(idx))
+
+	if node == nil {
+		return nil, fmt.Errorf("attempted to process beacon from node of index %d, but it was not in the group file", uint32(idx))
+	}
+
+	nodeName := node.Address()
+	// verify if request is valid
+	if err := h.crypto.ThresholdScheme.VerifyPartial(h.crypto.GetPub(), signMsg, p.GetPartialSig()); err != nil {
+		h.l.Errorw("",
+			"process_partial", addr, "err", err,
+			"prev_sig", shortSigStr(p.GetPreviousSignature()),
+			"curr_round", p.GetRound(),
+			"msg_sign", shortSigStr(signMsg),
+			"from_idx", idx,
+			"from_node", nodeName)
+		return nil, err
+	}
+	h.l.Debugw("",
+		"process_partial", addr,
+		"prev_sig", shortSigStr(p.GetPreviousSignature()),
+		"curr_round", p.GetRound(),
+		"msg_sign", shortSigStr(signMsg),
+		"from_node", nodeName,
+		"status", "OK")
+	if idx == h.crypto.Index() {
+		h.l.Errorw("",
+			"process_partial", addr,
+			"index_got", idx,
+			"index_our", h.crypto.Index(),
+			"advance_packet", p.GetRound(),
+			"from_node", nodeName)
+		// XXX error or not ?
+		return new(proto.Empty), nil
+	}
+	h.chain.NewValidPartial(addr, p)
+	return new(proto.Empty), nil
 }
 
 func shortSigStr(sig []byte) string {

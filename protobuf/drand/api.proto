@@ -24,6 +24,9 @@ service Public {
     // participates to
     rpc ChainInfo(drand.ChainInfoRequest) returns (drand.ChainInfoPacket);
 
+    // CoSign return signature and randomness base on msg for outside network
+    rpc CoSign(CoSignRequest) returns (CoSignResponse);
+
     // Home is a simple endpoint
     rpc Home(HomeRequest) returns (HomeResponse);
 }
@@ -58,4 +61,20 @@ message HomeRequest {
 message HomeResponse {
     string status = 1;
     common.Metadata metadata = 2;
+}
+
+
+message CoSignRequest{
+    string msg = 1;
+    uint64 round = 2;
+    common.Metadata metadata = 3;
+}
+
+message CoSignResponse{
+    string msg = 1;
+    bytes signature = 2;
+    bytes randomness = 3;
+    bytes public_key = 4;
+    uint64 round = 5;
+    common.Metadata metadata = 6;
 }

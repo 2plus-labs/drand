@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"net"
 	"time"
 
@@ -17,6 +18,33 @@ import (
 // and a Public Client (the client consumed by the HTTP API)
 type drandProxy struct {
 	r drand.PublicServer
+}
+
+func (d *drandProxy) CoSign(ctx context.Context, msg string, signature string, round uint64) (client.CoSignResult, error) {
+	// TODO: verify signature of backend server
+	cosignResp, err := d.r.CoSign(ctx, &drand.CoSignRequest{Msg: msg, Round: round})
+	if err != nil {
+		return nil, err
+	}
+
+	bp, ok := d.r.(*BeaconProcess)
+	if !ok {
+		return nil, errors.New("unable to convert to beacon process")
+	}
+
+	newBeacon := bp.beacon.FinalBeacon(cosignResp.GetRound())
+	if newBeacon == nil {
+		return nil, errors.New("unable to co-sign in the time")
+	}
+
+	buff, _ := bp.group.PublicKey.Key().MarshalBinary()
+
+	return &client.CoSignData{
+		Msg:       string(newBeacon.Message),
+		Sig:       newBeacon.Signature,
+		Random:    newBeacon.Randomness(),
+		PublicKey: buff,
+	}, nil
 }
 
 // Proxy wraps a server interface into a client interface so it can be queried

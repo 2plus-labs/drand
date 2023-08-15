@@ -29,6 +29,11 @@ type grpcClient struct {
 	l         log.Logger
 }
 
+func (g *grpcClient) CoSign(ctx context.Context, msg string, signature string, round uint64) (client.CoSignResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // New creates a drand client backed by a GRPC connection.
 func New(address, certPath string, insecure bool, chainHash []byte) (client.Client, error) {
 	var opts []grpc.DialOption

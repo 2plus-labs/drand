@@ -233,3 +233,34 @@ func (bp *BeaconProcess) GetIdentity(context.Context, *drand.IdentityRequest) (*
 	}
 	return response, nil
 }
+
+func (bp *BeaconProcess) CoSign(ctx context.Context, in *drand.CoSignRequest) (*drand.CoSignResponse, error) {
+	bp.log.Infow("cosign --- beacon", "input", in)
+	var addr = net.RemoteAddress(ctx)
+
+	bp.state.Lock()
+	defer bp.state.Unlock()
+
+	if bp.beacon == nil || len(bp.chainHash) == 0 {
+		return nil, errors.New("drand: beacon generation not started yet")
+	}
+	currBeacon, err := bp.beacon.Store().Last(ctx)
+	if err != nil || currBeacon == nil {
+		bp.log.Debugw("cosign", "public_rand", "unstored_beacon", "from", addr)
+		return nil, fmt.Errorf("can't retrieve beacon: %w %s", err, currBeacon)
+	}
+
+	bp.log.Debugw("cosign", "public_rand", addr, "round", currBeacon.Round, "reply", currBeacon.String())
+	if currBeacon.GetRound() != in.GetRound()-1 {
+		bp.log.Errorw("cosign", "last_round", currBeacon.GetRound(), "sign_round", in.GetRound())
+		return nil, errors.New("cosign: invalid round to co-sign")
+	}
+	nextRound := currBeacon.GetRound() + 1
+
+	if err := bp.beacon.CoSign(bp.beaconID, nextRound, []byte(in.GetMsg())); err != nil {
+		bp.log.Errorw("cosign", "last_round", currBeacon.GetRound(), "sign_round", nextRound)
+		return nil, err
+	}
+
+	return &drand.CoSignResponse{Round: nextRound}, nil
+}

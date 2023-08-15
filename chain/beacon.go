@@ -19,6 +19,8 @@ type Beacon struct {
 	Round uint64
 	// Signature is the BLS deterministic signature over Round || PreviousRand
 	Signature []byte
+	// Message is optional use for beacon no period
+	Message []byte
 }
 
 // Equal indicates if two beacons are equal
@@ -94,4 +96,13 @@ func SetPreviousRequiredOnContext(ctx context.Context) context.Context {
 func PreviousRequiredFromContext(ctx context.Context) bool {
 	_, ok := ctx.Value(requiresPreviousBeacon).(previousBeaconNeeded)
 	return ok
+}
+
+// MsgToHex return hex of message
+func (b *Beacon) MsgToHex() string {
+	return hex.EncodeToString(b.Message)
+}
+
+func (b *Beacon) GetMessage() []byte {
+	return b.Message
 }

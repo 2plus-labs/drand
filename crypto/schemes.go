@@ -30,6 +30,7 @@ import (
 type hashableBeacon interface {
 	GetPreviousSignature() []byte
 	GetRound() uint64
+	GetMessage() []byte
 }
 
 type signedBeacon interface {
@@ -81,6 +82,49 @@ type schnorrSuite struct {
 
 func (s *schnorrSuite) RandomStream() cipher.Stream {
 	return random.New()
+}
+
+// CoSigSchemeID is the scheme id used to manual return randomness.
+const CoSigSchemeID = "pedersen-bls-cosign"
+
+// NewPedersenBLSCoSign instantiate a scheme of type "pedersen-bls-cosign" which is the original sheme used by drand
+// since 2018. It links all beacons with the previous ones by "chaining" the signatures with the previous signature,
+// preventing one to predict a future message that would be signed by the network before the previous signature is
+// available. This however means this scheme is not compatible with "timelock encryption" as done by tlock.
+// This schemes has the group public key on G1, so 48 bytes, and the beacon signatures on G2, so 96 bytes.
+func NewPedersenBLSCoSign() (cs *Scheme) {
+	var Pairing = bls.NewBLS12381SuiteWithDST(
+		[]byte("BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_"), // default RFC9380 DST for G1
+		[]byte("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_"), // default RFC9380 DST for G2
+	)
+
+	var KeyGroup = Pairing.G1()
+	var SigGroup = Pairing.G2()
+	var ThresholdScheme = tbls.NewThresholdSchemeOnG2(Pairing)
+	var AuthScheme = signBls.NewSchemeOnG2(Pairing)
+	var DKGAuthScheme = schnorr.NewScheme(&schnorrSuite{KeyGroup})
+	var IdentityHashFunc = func() hash.Hash { h, _ := blake2b.New256(nil); return h }
+	// Chained means we're hashing the previous signature and the round number to make it an actual "chain"
+	var DigestFunc = func(b hashableBeacon) []byte {
+		h := sha256.New()
+
+		if len(b.GetMessage()) > 0 {
+			_, _ = h.Write(b.GetMessage())
+		}
+		_ = binary.Write(h, binary.BigEndian, b.GetRound())
+		return h.Sum(nil)
+	}
+
+	return &Scheme{
+		Name:            CoSigSchemeID,
+		SigGroup:        SigGroup,
+		KeyGroup:        KeyGroup,
+		ThresholdScheme: ThresholdScheme,
+		AuthScheme:      AuthScheme,
+		DKGAuthScheme:   DKGAuthScheme,
+		IdentityHash:    IdentityHashFunc,
+		DigestBeacon:    DigestFunc,
+	}
 }
 
 // DefaultSchemeID is the default scheme ID.
@@ -258,6 +302,8 @@ func SchemeFromName(schemeName string) (*Scheme, error) {
 		return NewPedersenBLSUnchainedG1(), nil
 	case ShortSigSchemeID:
 		return NewPedersenBLSUnchainedSwapped(), nil
+	case CoSigSchemeID:
+		return NewPedersenBLSCoSign(), nil
 	default:
 		return nil, fmt.Errorf("invalid scheme name '%s'", schemeName)
 	}

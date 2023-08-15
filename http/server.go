@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/drand/drand/http/dto"
 	"math"
 	"net/http"
 	"net/url"
@@ -96,6 +97,8 @@ func New(ctx context.Context, version string, logger log.Logger) (*DrandHandler,
 	mux.HandleFunc("/info", withCommonHeaders(version, handler.ChainInfo))
 	mux.HandleFunc("/health", withCommonHeaders(version, handler.Health))
 	mux.HandleFunc("/chains", withCommonHeaders(version, handler.ChainHashes))
+
+	mux.Post("/v1/cosign", withCommonHeaders(version, handler.CoSign))
 
 	handler.httpHandler = promhttp.InstrumentHandlerCounter(
 		metrics.HTTPCallCounter,
@@ -602,4 +605,69 @@ func (h *DrandHandler) getBeaconHandler(chainHash []byte) (*BeaconHandler, error
 	}
 
 	return bh, nil
+}
+
+func (h *DrandHandler) getBeaconHandlerByStr(chainHashStr string) (*BeaconHandler, error) {
+	h.state.RLock()
+	defer h.state.RUnlock()
+
+	bh, exists := h.beacons[chainHashStr]
+
+	if !exists {
+		return nil, fmt.Errorf("there is no BeaconHandler for beaconHash [%s] in our beacons [%v]. "+
+			"Is the chain hash correct?. Please check it", chainHashStr, h.beacons)
+	}
+
+	return bh, nil
+}
+
+func (h *DrandHandler) CoSign(w http.ResponseWriter, r *http.Request) {
+	errResp := dto.ErrorResp{}
+	if len(h.beacons) <= 0 {
+		errResp.Err = "do not have chain started"
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+	}
+	chainHashHex := ""
+	for k := range h.beacons {
+		chainHashHex = k
+		break
+	}
+
+	bh, err := h.getBeaconHandlerByStr(chainHashHex)
+	if err != nil {
+		errResp.Err = err.Error()
+		http.Error(w, errResp.ToString(), http.StatusNotFound)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), h.timeout)
+	defer cancel()
+
+	coSignDto := &dto.CoSign{}
+	if err := json.NewDecoder(r.Body).Decode(coSignDto); err != nil {
+		errResp.Err = err.Error()
+		h.log.Errorw("co-sign parser input request fail", "chain_hash", chainHashHex)
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+		return
+	}
+
+	resp, err := bh.client.CoSign(ctx, coSignDto.Msg, coSignDto.Signature, coSignDto.Round)
+	if err != nil {
+		errResp.Err = err.Error()
+		h.log.Errorw("co-sign", "message", coSignDto.Msg)
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+		return
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		errResp.Err = err.Error()
+		h.log.Errorw("co-sign: marshal fail", "message", resp.Message(), "sig", resp.Signature())
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache")
+	_, _ = w.Write(data)
 }

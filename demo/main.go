@@ -49,14 +49,22 @@ func main() {
 		defer stopContainer()
 	}
 
-	nRound, n := 2, 6
-	thr, newThr := 4, 5
-	period := "10s"
-	sch, err := crypto.GetSchemeFromEnv()
+	//nRound, n := 2, 6
+	_, n := 2, 3
+	thr, _ := 2, 5
+	//thr, newThr := 4, 5
+	period := "0s"
+	//sch, err := crypto.GetSchemeFromEnv()
+	//if err != nil {
+	//	panic(err)
+	//}
+	sch, err := crypto.GetSchemeByIDWithDefault(crypto.CoSigSchemeID)
 	if err != nil {
 		panic(err)
 	}
 	beaconID := test.GetBeaconIDFromEnv()
+
+	fmt.Println(sch.String())
 
 	c := cfg.Config{
 		N:            n,
@@ -78,9 +86,9 @@ func main() {
 	// start, they need to know about all self signed certificates. So we create
 	// already the new nodes here, such that when calling "StartCurrentNodes",
 	// the drand nodes will load all of them already.
-	orch.SetupNewNodes(3)
+	//orch.SetupNewNodes(3)
 
-	defer orch.Shutdown()
+	//defer orch.Shutdown()
 	defer func() {
 		// print logs in case things panic
 		if err := recover(); err != nil {
@@ -95,66 +103,66 @@ func main() {
 	orch.StartCurrentNodes()
 	orch.RunDKG(4 * time.Second)
 	orch.WaitGenesis()
-	for i := 0; i < nRound; i++ {
-		orch.WaitPeriod()
-		orch.CheckCurrentBeacon()
-	}
+	//for i := 0; i < nRound; i++ {
+	//	orch.WaitPeriod()
+	//	orch.CheckCurrentBeacon()
+	//}
 	// stop a node and look if the beacon still continues
-	nodeToStop := 3
-	orch.StopNodes(nodeToStop)
-	for i := 0; i < nRound; i++ {
-		orch.WaitPeriod()
-		orch.CheckCurrentBeacon(nodeToStop)
-	}
+	//nodeToStop := 3
+	//orch.StopNodes(nodeToStop)
+	//for i := 0; i < nRound; i++ {
+	//	orch.WaitPeriod()
+	//	orch.CheckCurrentBeacon(nodeToStop)
+	//}
 
-	// stop the whole network, wait a bit and see if it can restart at the right
-	// round
-	/*orch.StopAllNodes(nodeToStop)*/
-	// orch.WaitPeriod()
-	// orch.WaitPeriod()
-	// // start all but the one still down
-	// orch.StartCurrentNodes(nodeToStop)
-	// // leave time to network to sync
-	// periodD, _ := time.ParseDuration(period)
-	// orch.Wait(time.Duration(2) * periodD)
-	// for i := 0; i < nRound; i++ {
-	// orch.WaitPeriod()
-	// orch.CheckCurrentBeacon(nodeToStop)
-	// }
-
-	// stop only more than a threshold of the network, wait a bit and see if it
-	// can restart at the right round correctly
-	/*nodesToStop := []int{1, 2}*/
-	// fmt.Printf("[+] Stopping more than threshold of nodes (1,2,3)\n")
-	// orch.StopNodes(nodesToStop...)
-	// orch.WaitPeriod()
-	// orch.WaitPeriod()
-	// fmt.Printf("[+] Trying to start them again and check beacons\n")
-	// orch.StartNode(nodesToStop...)
-	orch.StartNode(nodeToStop)
-	orch.WaitPeriod()
-	orch.WaitPeriod()
+	//// stop the whole network, wait a bit and see if it can restart at the right
+	//// round
+	///*orch.StopAllNodes(nodeToStop)*/
+	//// orch.WaitPeriod()
+	//// orch.WaitPeriod()
+	//// // start all but the one still down
+	//// orch.StartCurrentNodes(nodeToStop)
+	//// // leave time to network to sync
+	//// periodD, _ := time.ParseDuration(period)
+	//// orch.Wait(time.Duration(2) * periodD)
+	//// for i := 0; i < nRound; i++ {
+	//// orch.WaitPeriod()
+	//// orch.CheckCurrentBeacon(nodeToStop)
+	//// }
+	//
+	//// stop only more than a threshold of the network, wait a bit and see if it
+	//// can restart at the right round correctly
+	///*nodesToStop := []int{1, 2}*/
+	//// fmt.Printf("[+] Stopping more than threshold of nodes (1,2,3)\n")
+	//// orch.StopNodes(nodesToStop...)
+	//// orch.WaitPeriod()
+	//// orch.WaitPeriod()
+	//// fmt.Printf("[+] Trying to start them again and check beacons\n")
+	//// orch.StartNode(nodesToStop...)
+	//orch.StartNode(nodeToStop)
+	//orch.WaitPeriod()
+	//orch.WaitPeriod()
 	// at this point node should have catched up
-	for i := 0; i < nRound; i++ {
-		orch.WaitPeriod()
-		orch.CheckCurrentBeacon()
-	}
+	//for i := 0; i < nRound; i++ {
+	//	orch.WaitPeriod()
+	//	orch.CheckCurrentBeacon()
+	//}
 
 	// --- RESHARING PART ---
-	orch.StartNewNodes()
-	// exclude first node
-	orch.CreateResharingGroup(1, newThr)
-	orch.RunResharing("4s")
-	orch.WaitTransition()
-	limit := 10000
-	if *testF {
-		limit = 4
-	}
-	// look if beacon is still up even with the nodeToExclude being offline
-	for i := 0; i < limit; i++ {
-		orch.WaitPeriod()
-		orch.CheckNewBeacon()
-	}
+	//orch.StartNewNodes()
+	//// exclude first node
+	//orch.CreateResharingGroup(1, newThr)
+	//orch.RunResharing("4s")
+	//orch.WaitTransition()
+	//limit := 10000
+	//if *testF {
+	//	limit = 4
+	//}
+	//// look if beacon is still up even with the nodeToExclude being offline
+	//for i := 0; i < limit; i++ {
+	//	orch.WaitPeriod()
+	//	orch.CheckNewBeacon()
+	//}
 }
 
 func findTransitionTime(period time.Duration, genesis int64, secondsFromNow int64) int64 {

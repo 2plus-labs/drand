@@ -27,6 +27,9 @@ type Client interface {
 	// at time for the current client.
 	RoundAt(time time.Time) uint64
 
+	// CoSign return signature of multi-party and randomness base on msg input
+	CoSign(ctx context.Context, msg string, signature string, round uint64) (CoSignResult, error)
+
 	// Close will halt the client, any background processes it runs and any
 	// in-flight Get, Watch or Info requests. Behavior for usage of the client
 	// after Close is called is undefined.
@@ -43,4 +46,11 @@ type Result interface {
 // LoggingClient sets the logger for use by clients that suppport it
 type LoggingClient interface {
 	SetLog(log.Logger)
+}
+
+type CoSignResult interface {
+	Message() string
+	Signature() []byte
+	Randomness() []byte
+	PubKey() []byte
 }

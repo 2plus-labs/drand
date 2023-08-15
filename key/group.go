@@ -398,10 +398,12 @@ func GroupFromProto(g *proto.GroupPacket, targetScheme *crypto.Scheme) (*Group, 
 		return nil, fmt.Errorf("genesis time zero")
 	}
 
+	// comment to support create new group with no period
+	//period := time.Duration(g.GetPeriod()) * time.Second
+	//if period == time.Duration(0) {
+	//	return nil, fmt.Errorf("period time is zero")
+	//}
 	period := time.Duration(g.GetPeriod()) * time.Second
-	if period == time.Duration(0) {
-		return nil, fmt.Errorf("period time is zero")
-	}
 
 	catchupPeriod := time.Duration(g.GetCatchupPeriod()) * time.Second
 	beaconID := g.GetMetadata().GetBeaconID()

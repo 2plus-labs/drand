@@ -117,6 +117,7 @@ type roundCache struct {
 	id     string
 	sigs   map[int][]byte
 	scheme *crypto.Scheme
+	msg    []byte
 }
 
 func newRoundCache(id string, p *drand.PartialBeaconPacket, s *crypto.Scheme) *roundCache {
@@ -126,6 +127,7 @@ func newRoundCache(id string, p *drand.PartialBeaconPacket, s *crypto.Scheme) *r
 		id:     id,
 		sigs:   make(map[int][]byte),
 		scheme: s,
+		msg:    p.GetMessage(),
 	}
 }
 
@@ -164,4 +166,8 @@ func (r *roundCache) Partials() [][]byte {
 
 func (r *roundCache) flushIndex(idx int) {
 	delete(r.sigs, idx)
+}
+
+func (r *roundCache) GetMessage() []byte {
+	return r.msg
 }

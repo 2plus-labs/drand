@@ -90,8 +90,10 @@ message PartialBeaconPacket {
     // partial signature - a threshold of them needs to be aggregated to produce
     // the final beacon at the given round.
     bytes partial_sig = 3;
+    // message is msg use to sign by multi-party in case beacon no period
+    bytes message = 4;
     //
-    common.Metadata metadata = 4;
+    common.Metadata metadata = 5;
 }
 
 // DKGPacket is the packet that nodes send to others nodes as part of the

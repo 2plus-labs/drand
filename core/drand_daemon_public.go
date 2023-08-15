@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/pkg/errors"
 
 	"github.com/drand/drand/protobuf/common"
 	"github.com/drand/drand/protobuf/drand"
@@ -105,4 +106,30 @@ func (dd *DrandDaemon) GetIdentity(ctx context.Context, in *drand.IdentityReques
 	}
 
 	return bp.GetIdentity(ctx, in)
+}
+
+func (dd *DrandDaemon) CoSign(ctx context.Context, in *drand.CoSignRequest) (*drand.CoSignResponse, error) {
+	bp, err := dd.getBeaconProcessFromRequest(in.GetMetadata())
+	if err != nil {
+		return nil, err
+	}
+
+	cosignResp, err := bp.CoSign(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+
+	newBeacon := bp.beacon.FinalBeacon(cosignResp.GetRound())
+	if newBeacon == nil {
+		return nil, errors.New("unable to co-sign in time")
+	}
+	coSignResp := &drand.CoSignResponse{
+		Round:      newBeacon.Round,
+		Signature:  newBeacon.Signature,
+		Msg:        newBeacon.MsgToHex(),
+		Randomness: newBeacon.Randomness(),
+		Metadata:   in.GetMetadata(),
+	}
+
+	return coSignResp, nil
 }

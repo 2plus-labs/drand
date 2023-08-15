@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/drand/drand/chain"
 	"github.com/drand/drand/crypto/vault"
 	"github.com/drand/drand/key"
@@ -38,6 +37,9 @@ type chainStore struct {
 	// all beacons finally inserted into the store are sent over this channel for
 	// the aggregation loop to know
 	beaconStoredAgg chan *chain.Beacon
+
+	// return result co-sign
+	cosignResult map[uint64]*chain.Beacon
 }
 
 func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vault, store chain.Store, t *ticker) (*chainStore, error) {
@@ -89,6 +91,7 @@ func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vau
 		newPartials:     make(chan partialInfo, defaultPartialChanBuffer),
 		catchupBeacons:  make(chan *chain.Beacon, 1),
 		beaconStoredAgg: make(chan *chain.Beacon, defaultNewBeaconBuffer),
+		cosignResult:    make(map[uint64]*chain.Beacon, defaultNewBeaconBuffer),
 	}
 	// we add callbacks to notify each time a final beacon is stored on the
 	// database so to update the latest view
@@ -97,6 +100,14 @@ func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vau
 			return
 		}
 		cs.beaconStoredAgg <- b
+		if cs.conf.Group.Period == 0 {
+			cs.syncm.mu.Lock()
+			if len(cs.cosignResult) > defaultNewBeaconBuffer {
+				cs.cosignResult = make(map[uint64]*chain.Beacon, defaultNewBeaconBuffer)
+			}
+			cs.cosignResult[b.GetRound()] = b
+			cs.syncm.mu.Unlock()
+		}
 	})
 	// TODO maybe look if it's worth having multiple workers there
 	go cs.runAggregator()
@@ -194,6 +205,11 @@ func (c *chainStore) runAggregator() {
 			c.l.Debugw("", "store_partial", partial.addr,
 				"round", roundCache.round, "len_partials", fmt.Sprintf("%d/%d", roundCache.Len(), thr))
 			if roundCache.Len() < thr {
+				// handle case call on-demand.
+				// node need to sign and send back msg for all node except current node
+				if c.conf.Group.Period == 0 && partial.addr != c.conf.Public.Address() {
+					c.signAndSend(partial.p)
+				}
 				break
 			}
 
@@ -316,6 +332,61 @@ func (c *chainStore) ValidateChain(ctx context.Context, upTo uint64, cb func(r, 
 
 func (c *chainStore) AppendedBeaconNoSync() chan *chain.Beacon {
 	return c.catchupBeacons
+}
+
+func (c *chainStore) signAndSend(packet *drand.PartialBeaconPacket) {
+	ctx := context.Background()
+	msg := packet.GetMessage()
+
+	rawMsg := c.crypto.DigestBeacon(&chain.Beacon{
+		Round:   packet.GetRound(),
+		Message: msg,
+	})
+
+	currSig, err := c.crypto.SignPartial(rawMsg)
+	if err != nil {
+		c.l.Fatal("beacon_round", "err creating signature", "err", err, "round", packet.GetRound())
+		return
+	}
+	c.l.Debugw("signAndSend", "broadcast_round", packet.GetRound(), "raw_msg", shortSigStr(rawMsg), "msg", shortSigStr(msg))
+	packet.PartialSig = currSig
+
+	c.NewValidPartial(c.conf.Public.Addr, packet)
+	for _, id := range c.crypto.GetGroup().Nodes {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		idt := id.Identity
+		if c.conf.Public.Address() == id.Address() {
+			continue
+		}
+		go func(i key.Identity) {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			c.l.Debugw("sign and send partial", "round", packet.GetRound(), "to", i.Address())
+			err := c.client.PartialBeacon(ctx, &i, packet)
+			if err != nil {
+				//c.thresholdMonitor.ReportFailure(beaconID, i.Address())
+				c.l.Errorw("error sending partial", "round", packet.GetRound(), "err", err, "to", i.Address())
+				return
+			}
+			//metrics.SuccessfulPartial(beaconID, i.Address())
+		}(*idt)
+	}
+}
+
+func (c *chainStore) ExistedDataRound(round uint64) (*chain.Beacon, bool) {
+	c.syncm.mu.Lock()
+	defer c.syncm.mu.Unlock()
+	value, ok := c.cosignResult[round]
+	return value, ok
 }
 
 type partialInfo struct {

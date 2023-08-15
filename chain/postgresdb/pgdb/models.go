@@ -7,6 +7,7 @@ type dbBeacon struct {
 	PreviousSig []byte `db:"previous_sig,omitempty"`
 	Round       uint64 `db:"round"`
 	Signature   []byte `db:"signature"`
+	Message     []byte `db:"message,omitempty"`
 }
 
 func toChainBeacon(dbB dbBeacon) *chain.Beacon {

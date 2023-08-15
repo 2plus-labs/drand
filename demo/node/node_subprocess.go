@@ -118,12 +118,12 @@ func (n *NodeProc) setup() {
 	}
 
 	// call drand binary
-	n.priv, err = key.NewKeyPair(n.privAddr, nil)
+	n.priv, err = key.NewKeyPair(n.privAddr, n.scheme)
 	if err != nil {
 		panic(err)
 	}
 
-	args := []string{"generate-keypair", "--folder", n.base, "--id", n.beaconID}
+	args := []string{"generate-keypair", "--folder", n.base, "--id", n.beaconID, "--scheme", n.scheme.Name}
 
 	if !n.tls {
 		args = append(args, "--tls-disable")
@@ -220,6 +220,7 @@ func (n *NodeProc) Index() int {
 }
 
 func (n *NodeProc) RunDKG(nodes, thr int, timeout time.Duration, leader bool, leaderAddr string, beaconOffset int) (*key.Group, error) {
+	fmt.Println(n.priv.Public.Address(), "STARTING DKG", n.scheme.Name)
 	args := []string{"share", "--control", n.ctrl}
 	args = append(args, pair("--out", n.groupPath)...)
 	if leader {
