@@ -208,6 +208,11 @@ func (h *httpClient) CoSign(ctx context.Context, msg string, signature string, r
 	panic("implement me")
 }
 
+func (h *httpClient) GetCoSign(ctx context.Context, round uint64) (client.CoSignResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // SetLog configures the client log output
 func (h *httpClient) SetLog(l log.Logger) {
 	h.l = l
