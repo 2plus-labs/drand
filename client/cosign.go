@@ -5,7 +5,7 @@ type CoSignData struct {
 	Msg       string `json:"message,omitempty"`
 	Sig       []byte `json:"signature,omitempty"`
 	Random    []byte `json:"randomness,omitempty"`
-	PublicKey []byte `json:"public_key"`
+	PublicKey []byte `json:"public_key,omitempty"`
 }
 
 func (c *CoSignData) PubKey() []byte {

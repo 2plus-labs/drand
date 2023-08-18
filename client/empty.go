@@ -21,6 +21,11 @@ type emptyClient struct {
 	i *chain.Info
 }
 
+func (m *emptyClient) GetCoSign(ctx context.Context, round uint64) (CoSignResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *emptyClient) CoSign(ctx context.Context, msg string, signature string, round uint64) (CoSignResult, error) {
 	//TODO implement me
 	panic("implement me")

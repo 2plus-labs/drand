@@ -3,6 +3,7 @@ package boltdb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -46,6 +47,7 @@ func IsATest(ctx context.Context) context.Context {
 
 func isThisATest(ctx context.Context) bool {
 	_, ok := ctx.Value(useNewDBFormat).(newDBFormat)
+	fmt.Println("isThisATest", ok)
 	return ok
 }
 
@@ -152,6 +154,15 @@ func (b *BoltStore) Put(ctx context.Context, beacon *chain.Beacon) error {
 		key := chain.RoundToBytes(beacon.Round)
 		buff, err := beacon.Marshal()
 		if err != nil {
+			return err
+		}
+
+		b.log.Debugw("", "boltdb", "storing beacon", "round", beacon.Round, "beacon", beacon.String())
+
+		var revBeacon chain.Beacon
+		err = revBeacon.Unmarshal(buff)
+		if err != nil {
+			b.log.Errorw("", "boltdb", "unmarshalling beacon", "round", beacon.Round, "err", err)
 			return err
 		}
 

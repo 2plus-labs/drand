@@ -641,3 +641,7 @@ func (oc *optimizingClient) Close() error {
 func (oc *optimizingClient) CoSign(ctx context.Context, msg string, signature string, round uint64) (CoSignResult, error) {
 	panic("implement me")
 }
+
+func (oc *optimizingClient) GetCoSign(ctx context.Context, round uint64) (CoSignResult, error) {
+	panic("implement me")
+}

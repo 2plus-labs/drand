@@ -20,6 +20,33 @@ type drandProxy struct {
 	r drand.PublicServer
 }
 
+func (d *drandProxy) GetCoSign(ctx context.Context, round uint64) (client.CoSignResult, error) {
+	bp, ok := d.r.(*BeaconProcess)
+	if !ok {
+		return nil, errors.New("unable to convert to beacon process")
+	}
+
+	var err error
+	var respBeacon *chain.Beacon
+	if round == 0 {
+		respBeacon, err = bp.beacon.Store().Last(ctx)
+	} else {
+		respBeacon, err = bp.beacon.Store().Get(ctx, round)
+	}
+	if err != nil {
+		return nil, err
+	}
+	bp.log.Debugw("", "public_rand", "get_cosign", "round", respBeacon.Round, "reply", respBeacon.String())
+
+	buff, _ := bp.group.PublicKey.Key().MarshalBinary()
+	return &client.CoSignData{
+		Msg:       string(respBeacon.Message),
+		Sig:       respBeacon.Signature,
+		Random:    respBeacon.Randomness(),
+		PublicKey: buff,
+	}, nil
+}
+
 func (d *drandProxy) CoSign(ctx context.Context, msg string, signature string, round uint64) (client.CoSignResult, error) {
 	// TODO: verify signature of backend server
 	cosignResp, err := d.r.CoSign(ctx, &drand.CoSignRequest{Msg: msg, Round: round})
@@ -41,7 +68,7 @@ func (d *drandProxy) CoSign(ctx context.Context, msg string, signature string, r
 	bp.beacon.DeleteCallback(cosignResp.GetRound())
 
 	return &client.CoSignData{
-		Msg:       string(res.Message),
+		Msg:       msg,
 		Sig:       res.Signature,
 		Random:    res.Randomness(),
 		PublicKey: buff,

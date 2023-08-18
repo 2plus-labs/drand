@@ -228,6 +228,7 @@ func (c *chainStore) runAggregator() {
 				Round:       roundCache.round,
 				PreviousSig: roundCache.prev,
 				Signature:   finalSig,
+				Message:     partial.p.GetMessage(),
 			}
 
 			c.l.Infow("", "aggregated_beacon", newBeacon.Round)

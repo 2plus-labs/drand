@@ -29,6 +29,11 @@ type grpcClient struct {
 	l         log.Logger
 }
 
+func (g *grpcClient) GetCoSign(ctx context.Context, round uint64) (client.CoSignResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (g *grpcClient) CoSign(ctx context.Context, msg string, signature string, round uint64) (client.CoSignResult, error) {
 	//TODO implement me
 	panic("implement me")

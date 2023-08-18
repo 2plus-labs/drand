@@ -239,6 +239,9 @@ func (bp *BeaconProcess) WaitDKG() (*key.Group, error) {
 // routine that runs the generation loop.
 func (bp *BeaconProcess) StartBeacon(catchup bool) error {
 	ctx := context.Background()
+	if bp.group.Period == 0 {
+		ctx = boltdb.IsATest(ctx)
+	}
 	b, err := bp.newBeacon(ctx)
 	if err != nil {
 		bp.log.Errorw("", "init_beacon", err)
@@ -273,6 +276,9 @@ func (bp *BeaconProcess) transition(oldGroup *key.Group, oldPresent, newPresent 
 	// NOTE: this limits the round time of drand - for now it is not a use
 	// case to go that fast
 	ctx := context.Background()
+	if oldGroup.Period == 0 {
+		ctx = boltdb.IsATest(ctx)
+	}
 
 	// We stop the node at or after transition to make sure they are broadcasting
 	// their last partial before transition.

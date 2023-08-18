@@ -87,18 +87,20 @@ func New(ctx context.Context, version string, logger log.Logger) (*DrandHandler,
 
 	mux := chi.NewMux()
 
-	mux.HandleFunc("/{"+chainHashParamKey+"}/public/latest", withCommonHeaders(version, handler.LatestRand))
-	mux.HandleFunc("/{"+chainHashParamKey+"}/public/{"+roundParamKey+"}", withCommonHeaders(version, handler.PublicRand))
+	//mux.HandleFunc("/{"+chainHashParamKey+"}/public/latest", withCommonHeaders(version, handler.LatestRand))
+	//mux.HandleFunc("/{"+chainHashParamKey+"}/public/{"+roundParamKey+"}", withCommonHeaders(version, handler.PublicRand))
 	mux.HandleFunc("/{"+chainHashParamKey+"}/info", withCommonHeaders(version, handler.ChainInfo))
 	mux.HandleFunc("/{"+chainHashParamKey+"}/health", withCommonHeaders(version, handler.Health))
 
-	mux.HandleFunc("/public/latest", withCommonHeaders(version, handler.LatestRand))
+	//mux.HandleFunc("/public/latest", withCommonHeaders(version, handler.LatestRand))
 	mux.HandleFunc("/public/{"+roundParamKey+"}", withCommonHeaders(version, handler.PublicRand))
 	mux.HandleFunc("/info", withCommonHeaders(version, handler.ChainInfo))
 	mux.HandleFunc("/health", withCommonHeaders(version, handler.Health))
 	mux.HandleFunc("/chains", withCommonHeaders(version, handler.ChainHashes))
 
-	mux.Post("/v1/cosign", withCommonHeaders(version, handler.CoSign))
+	mux.Post("/{"+chainHashParamKey+"}/cosign", withCommonHeaders(version, handler.CoSign))
+	mux.HandleFunc("/{"+chainHashParamKey+"}/public/cosign/{"+roundParamKey+"}", withCommonHeaders(version, handler.PublicSign))
+	mux.HandleFunc("/{"+chainHashParamKey+"}/public/cosign/latest", withCommonHeaders(version, handler.LatestSign))
 
 	handler.httpHandler = promhttp.InstrumentHandlerCounter(
 		metrics.HTTPCallCounter,
@@ -623,20 +625,15 @@ func (h *DrandHandler) getBeaconHandlerByStr(chainHashStr string) (*BeaconHandle
 
 func (h *DrandHandler) CoSign(w http.ResponseWriter, r *http.Request) {
 	errResp := dto.ErrorResp{}
-	if len(h.beacons) <= 0 {
-		errResp.Err = "do not have chain started"
-		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
-	}
-	chainHashHex := ""
-	for k := range h.beacons {
-		chainHashHex = k
-		break
+	chainHashHex, err := readChainHash(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	bh, err := h.getBeaconHandlerByStr(chainHashHex)
+	bh, err := h.getBeaconHandler(chainHashHex)
 	if err != nil {
-		errResp.Err = err.Error()
-		http.Error(w, errResp.ToString(), http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
@@ -670,4 +667,124 @@ func (h *DrandHandler) CoSign(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-cache")
 	_, _ = w.Write(data)
+}
+
+// PublicSign returns the signature of the given round
+// Only support for chain have period = 0
+func (h *DrandHandler) PublicSign(w http.ResponseWriter, r *http.Request) {
+	// Get the round.
+	roundN, err := readRound(r)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		h.log.Warnw("", "http_server", "failed to parse client round", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path))
+		return
+	}
+	if roundN == 0 {
+		h.LatestSign(w, r)
+		return
+	}
+
+	chainHashHex, err := readChainHash(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	info, err := h.getChainInfo(r.Context(), chainHashHex)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		h.log.Warnw("", "http_server", "failed to get randomness", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path), "err", err)
+		return
+	}
+	if info.Period != 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		h.log.Warnw("", "http_server", "failed to get randomness", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path), "err", "period is not 0")
+		return
+	}
+
+	bh, err := h.getBeaconHandler(chainHashHex)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	resp, err := bh.client.GetCoSign(r.Context(), roundN)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		h.log.Warnw("", "http_server", "failed to get randomness", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path), "err", err)
+		return
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		h.log.Warnw("", "http_server", "failed to marshal randomness", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path), "err", err)
+		return
+	}
+
+	if data == nil {
+		w.Header().Set("Cache-Control", "must-revalidate, no-cache, max-age=0")
+		w.WriteHeader(http.StatusNotFound)
+		h.log.Warnw("", "http_server", "request in the future", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path))
+		return
+	}
+
+	// Headers per recommendation for static assets at
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
+	w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+	w.Header().Set("Expires", time.Now().Add(7*24*time.Hour).Format(http.TimeFormat))
+	http.ServeContent(w, r, "rand.json", time.Time{}, bytes.NewReader(data))
+}
+
+func (h *DrandHandler) LatestSign(w http.ResponseWriter, r *http.Request) {
+	chainHashHex, err := readChainHash(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	info, err := h.getChainInfo(r.Context(), chainHashHex)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		h.log.Warnw("", "http_server", "failed to get randomness", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path), "err", err)
+		return
+	}
+	if info.Period != 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		h.log.Warnw("", "http_server", "failed to get randomness", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path), "err", "period is not 0")
+		return
+	}
+
+	bh, err := h.getBeaconHandler(chainHashHex)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	resp, err := bh.client.GetCoSign(r.Context(), 0)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		h.log.Warnw("", "http_server", "failed to get randomness", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path), "err", err)
+		return
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		h.log.Warnw("", "http_server", "failed to marshal randomness", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path), "err", err)
+		return
+	}
+
+	if data == nil {
+		w.Header().Set("Cache-Control", "must-revalidate, no-cache, max-age=0")
+		w.WriteHeader(http.StatusNotFound)
+		h.log.Warnw("", "http_server", "request in the future", "client", r.RemoteAddr, "req", url.PathEscape(r.URL.Path))
+		return
+	}
+
+	// Headers per recommendation for static assets at
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
+	w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+	w.Header().Set("Expires", time.Now().Add(7*24*time.Hour).Format(http.TimeFormat))
+	http.ServeContent(w, r, "rand.json", time.Time{}, bytes.NewReader(data))
 }

@@ -203,6 +203,11 @@ type httpClient struct {
 	done      chan struct{}
 }
 
+func (h *httpClient) CoSign(ctx context.Context, msg string, signature string, round uint64) (client.CoSignResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // SetLog configures the client log output
 func (h *httpClient) SetLog(l log.Logger) {
 	h.l = l

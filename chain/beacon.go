@@ -67,7 +67,8 @@ func (b *Beacon) GetRound() uint64 {
 }
 
 func (b *Beacon) String() string {
-	return fmt.Sprintf("{ round: %d, sig: %s, prevSig: %s }", b.Round, shortSigStr(b.Signature), shortSigStr(b.PreviousSig))
+	return fmt.Sprintf("{ round: %d, sig: %s, prevSig: %s, message: %s }",
+		b.Round, shortSigStr(b.Signature), shortSigStr(b.PreviousSig), b.Message)
 }
 
 func shortSigStr(sig []byte) string {

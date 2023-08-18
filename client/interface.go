@@ -30,6 +30,8 @@ type Client interface {
 	// CoSign return signature of multi-party and randomness base on msg input
 	CoSign(ctx context.Context, msg string, signature string, round uint64) (CoSignResult, error)
 
+	GetCoSign(ctx context.Context, round uint64) (CoSignResult, error)
+
 	// Close will halt the client, any background processes it runs and any
 	// in-flight Get, Watch or Info requests. Behavior for usage of the client
 	// after Close is called is undefined.
