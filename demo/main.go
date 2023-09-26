@@ -58,7 +58,7 @@ func main() {
 	//if err != nil {
 	//	panic(err)
 	//}
-	sch, err := crypto.GetSchemeByIDWithDefault(crypto.CoSigSchemeID)
+	sch, err := crypto.GetSchemeByIDWithDefault(crypto.BN256SchemeID)
 	if err != nil {
 		panic(err)
 	}

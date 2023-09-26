@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"github.com/drand/kyber/pairing/bn256"
 	"hash"
 	"os"
 
@@ -82,6 +83,42 @@ type schnorrSuite struct {
 
 func (s *schnorrSuite) RandomStream() cipher.Stream {
 	return random.New()
+}
+
+// BN256SchemeID is the scheme id used to set unchained randomness on beacons.
+const BN256SchemeID = "bn256-cosign"
+
+func NewBN256CoSign() (cs *Scheme) {
+	//var Pairing = bn256.NewSuiteBn256()
+	var Pairing = bn256.NewSuite()
+
+	var KeyGroup = Pairing.G2()
+	var SigGroup = Pairing.G1()
+	var ThresholdScheme = tbls.NewThresholdSchemeOnG1(Pairing)
+	var AuthScheme = signBls.NewSchemeOnG1(Pairing)
+	var DKGAuthScheme = schnorr.NewScheme(&schnorrSuite{KeyGroup})
+	var IdentityHashFunc = func() hash.Hash { h, _ := blake2b.New256(nil); return h }
+	// Chained means we're hashing the previous signature and the round number to make it an actual "chain"
+	var DigestFunc = func(b hashableBeacon) []byte {
+		h := sha256.New()
+
+		if len(b.GetMessage()) > 0 {
+			_, _ = h.Write(b.GetMessage())
+		}
+		_ = binary.Write(h, binary.BigEndian, b.GetRound())
+		return h.Sum(nil)
+	}
+
+	return &Scheme{
+		Name:            BN256SchemeID,
+		SigGroup:        SigGroup,
+		KeyGroup:        KeyGroup,
+		ThresholdScheme: ThresholdScheme,
+		AuthScheme:      AuthScheme,
+		DKGAuthScheme:   DKGAuthScheme,
+		IdentityHash:    IdentityHashFunc,
+		DigestBeacon:    DigestFunc,
+	}
 }
 
 // CoSigSchemeID is the scheme id used to manual return randomness.
@@ -300,16 +337,18 @@ func SchemeFromName(schemeName string) (*Scheme, error) {
 		return NewPedersenBLSUnchained(), nil
 	case SigsOnG1ID:
 		return NewPedersenBLSUnchainedG1(), nil
-	case ShortSigSchemeID:
-		return NewPedersenBLSUnchainedSwapped(), nil
 	case CoSigSchemeID:
 		return NewPedersenBLSCoSign(), nil
+	case BN256SchemeID:
+		return NewBN256CoSign(), nil
+	case ShortSigSchemeID:
+		return NewPedersenBLSUnchainedSwapped(), nil
 	default:
-		return nil, fmt.Errorf("invalid scheme name '%s'", schemeName)
+		return nil, fmt.Errorf("invalid scheme name --->'%s'", schemeName)
 	}
 }
 
-var schemeIDs = []string{DefaultSchemeID, UnchainedSchemeID, SigsOnG1ID, ShortSigSchemeID}
+var schemeIDs = []string{DefaultSchemeID, UnchainedSchemeID, SigsOnG1ID, ShortSigSchemeID, CoSigSchemeID, BN256SchemeID}
 
 // ListSchemes will return a slice of valid scheme ids
 func ListSchemes() []string {
