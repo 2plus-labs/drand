@@ -103,28 +103,11 @@ func NewHandler(c net.ProtocolClient, s chain.Store, conf *Config, l log.Logger,
 	withdrawCache := NewCallbackCache()
 
 	// init verify proxy
-	evmCfg := config.ClientConfig{
-		ChainId:         config.EthChainId,
-		RawChainID:      "",
-		AccountPrefix:   "",
-		Endpoint:        "",
-		BridgeAddr:      "",
-		VaultBridgeAddr: "",
-		PegBridgeAddr:   "",
-		MsgPackage:      "",
+	cfgClient, err := config.NewCfgClient()
+	if err != nil {
+		return nil, err
 	}
-	coCfg := config.ClientConfig{
-		ChainId:         config.TPLUSChainId,
-		RawChainID:      "",
-		Key:             "",
-		AccountPrefix:   "tplus",
-		Endpoint:        "",
-		BridgeAddr:      "",
-		VaultBridgeAddr: "",
-		PegBridgeAddr:   "",
-		MsgPackage:      "",
-	}
-	verifyProxy, err := verify.NewVerifyProxy(evmCfg, coCfg, l)
+	verifyProxy, err := verify.NewVerifyProxy(cfgClient, l)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,15 @@
+[bsc_chain]
+chain_id = "56"
+rpc_url = "https://bsc-dataseed.binance.org/"
+bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
+vault_bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
+peg_bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
+type = "EVM"
+
+[eth_chain]
+chain_id = "1"
+rpc_url = "https://mainnet.infura.io/v3/8e4b2b0b2a5a4b0d9a4b0b2a5a4b0d9a"
+bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
+vault_bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
+peg_bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
+type = "EVM"

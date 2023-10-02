@@ -28,8 +28,8 @@ type EthClient struct {
 	peggedTokenInstance *peggedtoken.Contracts
 }
 
-func NewEthClient(cfg config.ClientConfig, logger log.Logger) (*EthClient, error) {
-	client, err := ethclient.Dial(cfg.Endpoint)
+func NewEthClient(cfg config.ChainInfo, logger log.Logger) (*EthClient, error) {
+	client, err := ethclient.Dial(cfg.RPC)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,6 @@ func NewEthClient(cfg config.ClientConfig, logger log.Logger) (*EthClient, error
 	return &EthClient{
 		client:              client,
 		ChainID:             cfg.ChainId,
-		RawChainID:          cfg.RawChainID,
 		BridgeAddr:          cfg.BridgeAddr,
 		VaultAddr:           cfg.VaultBridgeAddr,
 		PegBridgeAddr:       cfg.PegBridgeAddr,

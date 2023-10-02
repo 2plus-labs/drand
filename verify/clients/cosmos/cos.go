@@ -27,13 +27,12 @@ type CoClient struct {
 	logger log.Logger
 }
 
-func NewCoClient(cfg config.ClientConfig, logger log.Logger) (*CoClient, error) {
+func NewCoClient(cfg config.ChainInfo, logger log.Logger) (*CoClient, error) {
 	client := &http.Client{}
 	ret := &CoClient{
 		client:        client,
-		endPoint:      cfg.Endpoint,
+		endPoint:      cfg.RPC,
 		ChainID:       cfg.ChainId,
-		RawChainID:    cfg.RawChainID,
 		BridgeAddr:    cfg.BridgeAddr,
 		VaultAddr:     cfg.VaultBridgeAddr,
 		PegBridgeAddr: cfg.PegBridgeAddr,

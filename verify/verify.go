@@ -37,38 +37,36 @@ type BridgeMsg interface {
 }
 
 type Proxy struct {
-	evmClient *evm.EthClient
-	cosClient *cosmos.CoClient
+	chainSupported map[uint64]BridgeMsg
 }
 
-func NewVerifyProxy(evmCfg config.ClientConfig, coCfg config.ClientConfig, logger log.Logger) (*Proxy, error) {
-	emvClient, err := evm.NewEthClient(evmCfg, logger)
-	if err != nil {
-		return nil, err
+func NewVerifyProxy(cfgClient *config.CfgClient, logger log.Logger) (*Proxy, error) {
+	chains := make(map[uint64]BridgeMsg)
+	for _, chainInfo := range cfgClient.Chains {
+		if chainInfo.Type == config.EVM {
+			evmClient, err := evm.NewEthClient(chainInfo, logger)
+			if err != nil {
+				return nil, err
+			}
+			chains[chainInfo.ChainId] = evmClient
+		} else {
+			cosClient, err := cosmos.NewCoClient(chainInfo, logger)
+			if err != nil {
+				return nil, err
+			}
+			chains[chainInfo.ChainId] = cosClient
+		}
 	}
-	cosClient, err := cosmos.NewCoClient(coCfg, logger)
-	if err != nil {
-		return nil, err
-	}
+
 	return &Proxy{
-		evmClient: emvClient,
-		cosClient: cosClient,
+		chainSupported: chains,
 	}, nil
 }
 
 func (p *Proxy) GetInstance(chainId uint64) BridgeMsg {
-	switch chainId {
-	case config.EthChainId:
-		return p.evmClient
-	case config.BSCChainId:
-		return p.evmClient
-	case config.PolyChainId:
-		return p.evmClient
-	case config.FTMChainId:
-		return p.evmClient
-	case config.TPLUSChainId:
-		return p.cosClient
-	default:
+	chainClient, ok := p.chainSupported[chainId]
+	if !ok {
 		return nil
 	}
+	return chainClient
 }
