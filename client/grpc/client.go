@@ -39,6 +39,16 @@ func (g *grpcClient) CoSign(ctx context.Context, msg string, signature string, r
 	panic("implement me")
 }
 
+func (g *grpcClient) SignMintProof(ctx context.Context, msg string) (client.ProofResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (g *grpcClient) SignWithdrawProof(ctx context.Context, msg string) (client.ProofResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // New creates a drand client backed by a GRPC connection.
 func New(address, certPath string, insecure bool, chainHash []byte) (client.Client, error) {
 	var opts []grpc.DialOption

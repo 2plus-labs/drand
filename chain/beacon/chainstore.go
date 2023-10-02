@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/drand/drand/chain"
+	"github.com/drand/drand/crypto"
 	"github.com/drand/drand/crypto/vault"
 	"github.com/drand/drand/key"
 	"github.com/drand/drand/log"
@@ -42,7 +43,8 @@ type chainStore struct {
 	cbCache *CallbackCache
 }
 
-func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vault, store chain.Store, t *ticker, cbCache *CallbackCache) (*chainStore, error) {
+func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vault, store chain.Store, t *ticker,
+	cbCache *CallbackCache) (*chainStore, error) {
 	// we write some stats about the timing when new beacon is saved
 	ds := newDiscrepancyStore(store, l, v.GetGroup(), cf.Clock)
 
@@ -106,6 +108,9 @@ func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vau
 				callback <- *b
 			}
 		}
+		//if cs.conf.Group.Scheme.Name == crypto.BN256SchemeID {
+		//	callback := cs.
+		//}
 	})
 	// TODO maybe look if it's worth having multiple workers there
 	go cs.runAggregator()
@@ -212,6 +217,9 @@ func (c *chainStore) runAggregator() {
 			}
 
 			msg := c.crypto.DigestBeacon(roundCache)
+			if c.conf.Group.Scheme.Name == crypto.BN256SchemeID {
+				msg = roundCache.msg
+			}
 
 			finalSig, err := c.crypto.Scheme.ThresholdScheme.Recover(c.crypto.GetPub(), msg, roundCache.Partials(), thr, n)
 			if err != nil {

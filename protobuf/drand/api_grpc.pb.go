@@ -31,6 +31,10 @@ type PublicClient interface {
 	ChainInfo(ctx context.Context, in *ChainInfoRequest, opts ...grpc.CallOption) (*ChainInfoPacket, error)
 	// CoSign return signature and randomness base on msg for outside network
 	CoSign(ctx context.Context, in *CoSignRequest, opts ...grpc.CallOption) (*CoSignResponse, error)
+	// SignMintProof return proof of minting
+	SignMintProof(ctx context.Context, in *MintProofRequest, opts ...grpc.CallOption) (*MintProofResponse, error)
+	// SignWithdrawProof return proof of withdraw
+	SignWithdrawProof(ctx context.Context, in *WithdrawProofRequest, opts ...grpc.CallOption) (*WithdrawProofResponse, error)
 	// Home is a simple endpoint
 	Home(ctx context.Context, in *HomeRequest, opts ...grpc.CallOption) (*HomeResponse, error)
 }
@@ -102,6 +106,24 @@ func (c *publicClient) CoSign(ctx context.Context, in *CoSignRequest, opts ...gr
 	return out, nil
 }
 
+func (c *publicClient) SignMintProof(ctx context.Context, in *MintProofRequest, opts ...grpc.CallOption) (*MintProofResponse, error) {
+	out := new(MintProofResponse)
+	err := c.cc.Invoke(ctx, "/drand.Public/SignMintProof", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *publicClient) SignWithdrawProof(ctx context.Context, in *WithdrawProofRequest, opts ...grpc.CallOption) (*WithdrawProofResponse, error) {
+	out := new(WithdrawProofResponse)
+	err := c.cc.Invoke(ctx, "/drand.Public/SignWithdrawProof", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *publicClient) Home(ctx context.Context, in *HomeRequest, opts ...grpc.CallOption) (*HomeResponse, error) {
 	out := new(HomeResponse)
 	err := c.cc.Invoke(ctx, "/drand.Public/Home", in, out, opts...)
@@ -124,6 +146,10 @@ type PublicServer interface {
 	ChainInfo(context.Context, *ChainInfoRequest) (*ChainInfoPacket, error)
 	// CoSign return signature and randomness base on msg for outside network
 	CoSign(context.Context, *CoSignRequest) (*CoSignResponse, error)
+	// SignMintProof return proof of minting
+	SignMintProof(context.Context, *MintProofRequest) (*MintProofResponse, error)
+	// SignWithdrawProof return proof of withdraw
+	SignWithdrawProof(context.Context, *WithdrawProofRequest) (*WithdrawProofResponse, error)
 	// Home is a simple endpoint
 	Home(context.Context, *HomeRequest) (*HomeResponse, error)
 }
@@ -143,6 +169,12 @@ func (UnimplementedPublicServer) ChainInfo(context.Context, *ChainInfoRequest) (
 }
 func (UnimplementedPublicServer) CoSign(context.Context, *CoSignRequest) (*CoSignResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CoSign not implemented")
+}
+func (UnimplementedPublicServer) SignMintProof(context.Context, *MintProofRequest) (*MintProofResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SignMintProof not implemented")
+}
+func (UnimplementedPublicServer) SignWithdrawProof(context.Context, *WithdrawProofRequest) (*WithdrawProofResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SignWithdrawProof not implemented")
 }
 func (UnimplementedPublicServer) Home(context.Context, *HomeRequest) (*HomeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Home not implemented")
@@ -234,6 +266,42 @@ func _Public_CoSign_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Public_SignMintProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MintProofRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PublicServer).SignMintProof(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/drand.Public/SignMintProof",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PublicServer).SignMintProof(ctx, req.(*MintProofRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Public_SignWithdrawProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WithdrawProofRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PublicServer).SignWithdrawProof(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/drand.Public/SignWithdrawProof",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PublicServer).SignWithdrawProof(ctx, req.(*WithdrawProofRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Public_Home_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HomeRequest)
 	if err := dec(in); err != nil {
@@ -270,6 +338,14 @@ var Public_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CoSign",
 			Handler:    _Public_CoSign_Handler,
+		},
+		{
+			MethodName: "SignMintProof",
+			Handler:    _Public_SignMintProof_Handler,
+		},
+		{
+			MethodName: "SignWithdrawProof",
+			Handler:    _Public_SignWithdrawProof_Handler,
 		},
 		{
 			MethodName: "Home",

@@ -114,3 +114,21 @@ func (dd *DrandDaemon) CoSign(ctx context.Context, in *drand.CoSignRequest) (*dr
 
 	return bp.CoSign(ctx, in)
 }
+
+func (dd *DrandDaemon) SignMintProof(ctx context.Context, in *drand.MintProofRequest) (*drand.MintProofResponse, error) {
+	bp, err := dd.getBeaconProcessFromRequest(in.GetMetadata())
+	if err != nil {
+		return nil, err
+	}
+
+	return bp.SignMintProof(ctx, in)
+}
+
+func (dd *DrandDaemon) SignWithdrawProof(ctx context.Context, in *drand.WithdrawProofRequest) (*drand.WithdrawProofResponse, error) {
+	bp, err := dd.getBeaconProcessFromRequest(in.GetMetadata())
+	if err != nil {
+		return nil, err
+	}
+
+	return bp.SignWithdrawProof(ctx, in)
+}

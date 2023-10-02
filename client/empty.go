@@ -31,6 +31,16 @@ func (m *emptyClient) CoSign(ctx context.Context, msg string, signature string, 
 	panic("implement me")
 }
 
+func (m *emptyClient) SignMintProof(ctx context.Context, msg string) (ProofResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *emptyClient) SignWithdrawProof(ctx context.Context, msg string) (ProofResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *emptyClient) String() string {
 	return emptyClientStringerValue
 }

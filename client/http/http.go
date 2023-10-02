@@ -213,6 +213,16 @@ func (h *httpClient) GetCoSign(ctx context.Context, round uint64) (client.CoSign
 	panic("implement me")
 }
 
+func (h *httpClient) SignMintProof(ctx context.Context, msg string) (client.ProofResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (h *httpClient) SignWithdrawProof(ctx context.Context, msg string) (client.ProofResult, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // SetLog configures the client log output
 func (h *httpClient) SetLog(l log.Logger) {
 	h.l = l

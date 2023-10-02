@@ -32,6 +32,12 @@ type Client interface {
 
 	GetCoSign(ctx context.Context, round uint64) (CoSignResult, error)
 
+	// SignMintProof sign mint proof
+	SignMintProof(ctx context.Context, msg string) (ProofResult, error)
+
+	// SignWithdrawProof sign withdraw proof
+	SignWithdrawProof(ctx context.Context, msg string) (ProofResult, error)
+
 	// Close will halt the client, any background processes it runs and any
 	// in-flight Get, Watch or Info requests. Behavior for usage of the client
 	// after Close is called is undefined.
@@ -54,5 +60,13 @@ type CoSignResult interface {
 	Message() string
 	Signature() []byte
 	Randomness() []byte
+	PubKey() []byte
+}
+
+// ProofResult represents the proof for a single drand round.
+type ProofResult interface {
+	Message() string
+	Signature() []byte
+	Round() uint64
 	PubKey() []byte
 }

@@ -27,6 +27,12 @@ service Public {
     // CoSign return signature and randomness base on msg for outside network
     rpc CoSign(CoSignRequest) returns (CoSignResponse);
 
+    // SignMintProof return proof of minting
+    rpc SignMintProof(MintProofRequest) returns (MintProofResponse);
+
+    // SignWithdrawProof return proof of withdraw
+    rpc SignWithdrawProof(WithdrawProofRequest) returns (WithdrawProofResponse);
+
     // Home is a simple endpoint
     rpc Home(HomeRequest) returns (HomeResponse);
 }
@@ -77,4 +83,30 @@ message CoSignResponse{
     bytes public_key = 4;
     uint64 round = 5;
     common.Metadata metadata = 6;
+}
+
+message MintProofRequest{
+    string msg = 1;
+    common.Metadata metadata = 2;
+}
+
+message MintProofResponse{
+    string msg = 1;
+    bytes signature = 2;
+    bytes public_key = 3;
+    uint64 round = 4;
+    common.Metadata metadata = 5;
+}
+
+message WithdrawProofRequest{
+    string msg = 1;
+    common.Metadata metadata = 2;
+}
+
+message WithdrawProofResponse{
+    string msg = 1;
+    bytes signature = 2;
+    bytes public_key = 3;
+    uint64 round = 4;
+    common.Metadata metadata = 5;
 }

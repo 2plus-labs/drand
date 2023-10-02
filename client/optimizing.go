@@ -645,3 +645,11 @@ func (oc *optimizingClient) CoSign(ctx context.Context, msg string, signature st
 func (oc *optimizingClient) GetCoSign(ctx context.Context, round uint64) (CoSignResult, error) {
 	panic("implement me")
 }
+
+func (oc *optimizingClient) SignMintProof(ctx context.Context, msg string) (ProofResult, error) {
+	panic("implement me")
+}
+
+func (oc *optimizingClient) SignWithdrawProof(ctx context.Context, msg string) (ProofResult, error) {
+	panic("implement me")
+}

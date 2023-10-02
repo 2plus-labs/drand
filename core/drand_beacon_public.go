@@ -264,3 +264,57 @@ func (bp *BeaconProcess) CoSign(ctx context.Context, in *drand.CoSignRequest) (*
 
 	return &drand.CoSignResponse{Round: nextRound}, nil
 }
+
+func (bp *BeaconProcess) SignMintProof(ctx context.Context, in *drand.MintProofRequest) (*drand.MintProofResponse, error) {
+	bp.log.Infow("sign mint proof --- beacon", "input", in)
+	var addr = net.RemoteAddress(ctx)
+
+	bp.state.Lock()
+	defer bp.state.Unlock()
+
+	if bp.beacon == nil || len(bp.chainHash) == 0 {
+		return nil, errors.New("drand: beacon generation not started yet")
+	}
+	currBeacon, err := bp.beacon.Store().Last(ctx)
+	if err != nil || currBeacon == nil {
+		bp.log.Debugw("sign mint proof", "public_rand", "unstored_beacon", "from", addr)
+		return nil, fmt.Errorf("can't retrieve beacon: %w %s", err, currBeacon)
+	}
+
+	bp.log.Debugw("sign mint proof", "public_rand", addr, "round", currBeacon.Round, "reply", currBeacon.String())
+	nextRound := currBeacon.GetRound() + 1
+
+	if err := bp.beacon.SignMintProof(bp.beaconID, nextRound, in.GetMsg()); err != nil {
+		bp.log.Errorw("sign mint proof", "last_round", currBeacon.GetRound(), "sign_round", nextRound)
+		return nil, err
+	}
+
+	return &drand.MintProofResponse{Round: nextRound}, nil
+}
+
+func (bp *BeaconProcess) SignWithdrawProof(ctx context.Context, in *drand.WithdrawProofRequest) (*drand.WithdrawProofResponse, error) {
+	bp.log.Infow("sign withdraw proof --- beacon", "input", in)
+	var addr = net.RemoteAddress(ctx)
+
+	bp.state.Lock()
+	defer bp.state.Unlock()
+
+	if bp.beacon == nil || len(bp.chainHash) == 0 {
+		return nil, errors.New("drand: beacon generation not started yet")
+	}
+	currBeacon, err := bp.beacon.Store().Last(ctx)
+	if err != nil || currBeacon == nil {
+		bp.log.Debugw("sign withdraw proof", "public_rand", "unstored_beacon", "from", addr)
+		return nil, fmt.Errorf("can't retrieve beacon: %w %s", err, currBeacon)
+	}
+
+	bp.log.Debugw("sign withdraw proof", "public_rand", addr, "round", currBeacon.Round, "reply", currBeacon.String())
+	nextRound := currBeacon.GetRound() + 1
+
+	if err := bp.beacon.SignWithdrawProof(bp.beaconID, nextRound, in.GetMsg()); err != nil {
+		bp.log.Errorw("sign withdraw proof", "last_round", currBeacon.GetRound(), "sign_round", nextRound)
+		return nil, err
+	}
+
+	return &drand.WithdrawProofResponse{Round: nextRound}, nil
+}

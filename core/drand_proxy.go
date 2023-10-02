@@ -75,6 +75,62 @@ func (d *drandProxy) CoSign(ctx context.Context, msg string, signature string, r
 	}, nil
 }
 
+func (d *drandProxy) SignMintProof(ctx context.Context, msg string) (client.ProofResult, error) {
+	signResp, err := d.r.SignMintProof(ctx, &drand.MintProofRequest{Msg: msg})
+	if err != nil {
+		return nil, err
+	}
+
+	bp, ok := d.r.(*BeaconProcess)
+	if !ok {
+		return nil, errors.New("sign mint: unable to convert to beacon process")
+	}
+
+	result := make(chan chain.Beacon, 1)
+	bp.beacon.RegisterMintCallback(signResp.GetRound(), result)
+	res := <-result
+
+	buff, _ := bp.group.PublicKey.Key().MarshalBinary()
+	bp.group.PublicKey.Key().String()
+
+	bp.beacon.DeleteMintCallback(signResp.GetRound())
+
+	return &client.ProofResultData{
+		Msg:       msg,
+		Sig:       res.GetSignature(),
+		RoundId:   res.GetRound(),
+		PublicKey: buff,
+	}, nil
+}
+
+func (d *drandProxy) SignWithdrawProof(ctx context.Context, msg string) (client.ProofResult, error) {
+	signResp, err := d.r.SignWithdrawProof(ctx, &drand.WithdrawProofRequest{Msg: msg})
+	if err != nil {
+		return nil, err
+	}
+
+	bp, ok := d.r.(*BeaconProcess)
+	if !ok {
+		return nil, errors.New("sign withdraw: unable to convert to beacon process")
+	}
+
+	key := signResp.GetRound()
+	result := make(chan chain.Beacon, 1)
+	bp.beacon.RegisterWithdrawCallback(key, result)
+	res := <-result
+
+	buff, _ := bp.group.PublicKey.Key().MarshalBinary()
+
+	bp.beacon.DeleteWithdrawCallback(key)
+
+	return &client.ProofResultData{
+		Msg:       msg,
+		Sig:       res.GetSignature(),
+		RoundId:   res.GetRound(),
+		PublicKey: buff,
+	}, nil
+}
+
 // Proxy wraps a server interface into a client interface so it can be queried
 func Proxy(s drand.PublicServer) client.Client {
 	return &drandProxy{s}

@@ -50,3 +50,9 @@ const DefaultGenesisOffset = 1 * time.Second
 var DefaultResharingOffset = 30 * time.Second
 
 const callMaxTimeout = 10 * time.Second
+
+// SignMintProofPrefix is the prefix used to sign the mint proof
+const SignMintProofPrefix = "mint"
+
+// SignWithdrawProofPrefix is the prefix used to sign the withdraw proof
+const SignWithdrawProofPrefix = "withdraw"
