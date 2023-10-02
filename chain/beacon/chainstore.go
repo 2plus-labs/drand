@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/drand/drand/chain"
@@ -11,6 +12,7 @@ import (
 	"github.com/drand/drand/log"
 	"github.com/drand/drand/net"
 	"github.com/drand/drand/protobuf/drand"
+	"strconv"
 )
 
 const (
@@ -40,11 +42,12 @@ type chainStore struct {
 	beaconStoredAgg chan *chain.Beacon
 
 	// return result co-sign
-	cbCache *CallbackCache
+	cbCache     *CallbackCache
+	bridgeCache *CallbackCache
 }
 
 func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vault, store chain.Store, t *ticker,
-	cbCache *CallbackCache) (*chainStore, error) {
+	cbCache *CallbackCache, bridgeCache *CallbackCache) (*chainStore, error) {
 	// we write some stats about the timing when new beacon is saved
 	ds := newDiscrepancyStore(store, l, v.GetGroup(), cf.Clock)
 
@@ -94,6 +97,7 @@ func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vau
 		catchupBeacons:  make(chan *chain.Beacon, 1),
 		beaconStoredAgg: make(chan *chain.Beacon, defaultNewBeaconBuffer),
 		cbCache:         cbCache,
+		bridgeCache:     bridgeCache,
 	}
 	// we add callbacks to notify each time a final beacon is stored on the
 	// database so to update the latest view
@@ -103,14 +107,18 @@ func newChainStore(l log.Logger, cf *Config, cl net.ProtocolClient, v *vault.Vau
 		}
 		cs.beaconStoredAgg <- b
 		if cs.conf.Group.Period == 0 {
-			callback := cs.cbCache.Get(b.GetRound())
+			callback := cs.cbCache.Get(strconv.FormatUint(b.GetRound(), 10))
 			if callback != nil {
 				callback <- *b
 			}
 		}
-		//if cs.conf.Group.Scheme.Name == crypto.BN256SchemeID {
-		//	callback := cs.
-		//}
+		if cs.conf.Group.Scheme.Name == crypto.BN256SchemeID {
+			keyCache := strconv.FormatUint(b.GetRound(), 10) + hex.EncodeToString(b.Message)
+			callback := cs.bridgeCache.Get(keyCache)
+			if callback != nil {
+				callback <- *b
+			}
+		}
 	})
 	// TODO maybe look if it's worth having multiple workers there
 	go cs.runAggregator()

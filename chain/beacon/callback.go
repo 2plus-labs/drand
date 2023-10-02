@@ -6,24 +6,24 @@ import (
 )
 
 type CallbackCache struct {
-	callbacks map[uint64]chan chain.Beacon
+	callbacks map[string]chan chain.Beacon
 	state     sync.RWMutex
 }
 
 func NewCallbackCache() *CallbackCache {
 	return &CallbackCache{
-		callbacks: make(map[uint64]chan chain.Beacon, 0),
+		callbacks: make(map[string]chan chain.Beacon, 0),
 		state:     sync.RWMutex{},
 	}
 }
 
-func (f *CallbackCache) Add(key uint64, value chan chain.Beacon) {
+func (f *CallbackCache) Add(key string, value chan chain.Beacon) {
 	f.state.Lock()
 	defer f.state.Unlock()
 	f.callbacks[key] = value
 }
 
-func (f *CallbackCache) Get(key uint64) chan chain.Beacon {
+func (f *CallbackCache) Get(key string) chan chain.Beacon {
 	f.state.RLock()
 	defer f.state.RUnlock()
 	if _, ok := f.callbacks[key]; ok {
@@ -32,7 +32,7 @@ func (f *CallbackCache) Get(key uint64) chan chain.Beacon {
 	return nil
 }
 
-func (f *CallbackCache) Delete(key uint64) {
+func (f *CallbackCache) Delete(key string) {
 	f.state.Lock()
 	defer f.state.Unlock()
 	if _, ok := f.callbacks[key]; ok {

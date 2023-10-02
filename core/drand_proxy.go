@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"net"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc/metadata"
@@ -86,14 +87,15 @@ func (d *drandProxy) SignMintProof(ctx context.Context, msg string) (client.Proo
 		return nil, errors.New("sign mint: unable to convert to beacon process")
 	}
 
+	keyCache := strconv.FormatUint(signResp.GetRound(), 10) + signResp.GetMsg()
 	result := make(chan chain.Beacon, 1)
-	bp.beacon.RegisterMintCallback(signResp.GetRound(), result)
+	bp.beacon.RegisterBridgeCallback(keyCache, result)
 	res := <-result
 
 	buff, _ := bp.group.PublicKey.Key().MarshalBinary()
 	bp.group.PublicKey.Key().String()
 
-	bp.beacon.DeleteMintCallback(signResp.GetRound())
+	bp.beacon.DeleteBridgeCallback(keyCache)
 
 	return &client.ProofResultData{
 		Msg:       msg,
@@ -114,14 +116,14 @@ func (d *drandProxy) SignWithdrawProof(ctx context.Context, msg string) (client.
 		return nil, errors.New("sign withdraw: unable to convert to beacon process")
 	}
 
-	key := signResp.GetRound()
+	keyCache := strconv.FormatUint(signResp.GetRound(), 10) + signResp.GetMsg()
 	result := make(chan chain.Beacon, 1)
-	bp.beacon.RegisterWithdrawCallback(key, result)
+	bp.beacon.RegisterBridgeCallback(keyCache, result)
 	res := <-result
 
 	buff, _ := bp.group.PublicKey.Key().MarshalBinary()
 
-	bp.beacon.DeleteWithdrawCallback(key)
+	bp.beacon.DeleteBridgeCallback(keyCache)
 
 	return &client.ProofResultData{
 		Msg:       msg,

@@ -11,6 +11,7 @@ import (
 	"github.com/drand/drand/verify"
 	"github.com/drand/drand/verify/config"
 	"github.com/drand/drand/verify/utils"
+	"strconv"
 	"sync"
 	"time"
 
@@ -68,9 +69,8 @@ type Handler struct {
 	l         log.Logger
 
 	// cache use for get result
-	cbCache       *CallbackCache
-	mintCache     *CallbackCache
-	withdrawCache *CallbackCache
+	cbCache     *CallbackCache
+	bridgeCache *CallbackCache
 
 	// init verify proxy use for sign mint and withdraw proof
 	verifyProxy *verify.Proxy
@@ -99,8 +99,7 @@ func NewHandler(c net.ProtocolClient, s chain.Store, conf *Config, l log.Logger,
 	cbCache := NewCallbackCache()
 
 	// init bridge cache
-	mintCache := NewCallbackCache()
-	withdrawCache := NewCallbackCache()
+	bridgeCache := NewCallbackCache()
 
 	// init verify proxy
 	cfgClient, err := config.NewCfgClient()
@@ -117,7 +116,7 @@ func NewHandler(c net.ProtocolClient, s chain.Store, conf *Config, l log.Logger,
 	if conf.Group.Period > 0 {
 		ticker = newTicker(conf.Clock, conf.Group.Period, conf.Group.GenesisTime)
 	}
-	store, err := newChainStore(l, conf, c, v, s, ticker, cbCache)
+	store, err := newChainStore(l, conf, c, v, s, ticker, cbCache, bridgeCache)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +136,7 @@ func NewHandler(c net.ProtocolClient, s chain.Store, conf *Config, l log.Logger,
 		version:          version,
 		thresholdMonitor: metrics.NewThresholdMonitor(conf.Group.ID, l, conf.Group.Threshold),
 		cbCache:          cbCache,
-		mintCache:        mintCache,
-		withdrawCache:    withdrawCache,
+		bridgeCache:      bridgeCache,
 		verifyProxy:      verifyProxy,
 	}
 	return handler, nil
@@ -642,49 +640,49 @@ func (h *Handler) CoSign(beaconID string, round uint64, msg []byte) error {
 
 }
 
-func (h *Handler) SignMintProof(beaconID string, round uint64, msg string) error {
+func (h *Handler) SignMintProof(beaconID string, round uint64, msg string) ([]byte, error) {
 	ctx := context.Background()
 
 	// decode msg from base64 to proto
 	mintMsg, err := h.decodeMintMsg(msg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// verify deposit msg on src chain and get dest chain id
 	srcChainInstance := h.verifyProxy.GetInstance(mintMsg.RefChainId)
 	if srcChainInstance == nil {
-		return fmt.Errorf("verify src chain instance is nil")
+		return nil, fmt.Errorf("verify src chain instance is nil")
 	}
 
 	destChainId, err := srcChainInstance.GetMintDestChainId(mintMsg)
 	if err != nil {
 		h.l.Errorw("get dest chain id failed", "err", err)
-		return err
+		return nil, err
 	}
 
 	// verify mint msg on dest chain
 	destChainInstance := h.verifyProxy.GetInstance(destChainId)
 	if destChainInstance == nil {
-		return fmt.Errorf("verify dest chain instance is nil")
+		return nil, fmt.Errorf("verify dest chain instance is nil")
 	}
 
 	err = destChainInstance.VerifyMintMsgOnDest(mintMsg)
 	if err != nil {
 		h.l.Errorw("verify mint msg failed", "err", err)
-		return err
+		return nil, err
 	}
 
 	msgRaw, err := h.digestSignMintMsg(destChainInstance, msg)
 	if err != nil {
 		h.l.Errorw("digest sign msg failed", "err", err)
-		return err
+		return nil, err
 	}
 	h.l.Debugw("", "broadcast_partial", round, "msg", shortSigStr([]byte(msg)))
 	currSig, err := h.crypto.SignPartial(msgRaw)
 	if err != nil {
 		h.l.Fatal("beacon_round", "err creating signature", "err", err, "round", round)
-		return err
+		return nil, err
 	}
 	h.l.Debugw("", "broadcast_partial", round, "raw_msg", shortSigStr(msgRaw))
 	metadata := common.NewMetadata(h.version.ToProto())
@@ -702,7 +700,7 @@ func (h *Handler) SignMintProof(beaconID string, round uint64, msg string) error
 	for _, id := range h.crypto.GetGroup().Nodes {
 		select {
 		case <-ctx.Done():
-			return nil
+			return nil, nil
 		default:
 		}
 
@@ -728,51 +726,51 @@ func (h *Handler) SignMintProof(beaconID string, round uint64, msg string) error
 		}(*idt)
 	}
 
-	return nil
+	return msgRaw, nil
 }
 
-func (h *Handler) SignWithdrawProof(beaconID string, round uint64, msg string) error {
+func (h *Handler) SignWithdrawProof(beaconID string, round uint64, msg string) ([]byte, error) {
 	ctx := context.Background()
 
 	// decode msg from base64 to proto
 	withdrawMsg, err := h.decodeWithdrawMsg(msg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// verify burn msg on src chain and get dest chain id
 	srcChainInstance := h.verifyProxy.GetInstance(withdrawMsg.RefChainId)
 	if srcChainInstance == nil {
-		return fmt.Errorf("verify src chain instance is nil")
+		return nil, fmt.Errorf("verify src chain instance is nil")
 	}
 
 	destChainId, err := srcChainInstance.GetWithdrawDestChainId(withdrawMsg)
 	if err != nil {
 		h.l.Errorw("verify and get dest chain of withdraw failed", "err", err)
-		return err
+		return nil, err
 	}
 
 	// verify withdraw msg on dest chain
 	destChainInstance := h.verifyProxy.GetInstance(destChainId)
 	if destChainInstance == nil {
-		return fmt.Errorf("verify dest chain instance is nil")
+		return nil, fmt.Errorf("verify dest chain instance is nil")
 	}
 	err = destChainInstance.VerifyWithdrawMsgOnDest(withdrawMsg)
 	if err != nil {
 		h.l.Errorw("verify withdraw msg failed", "err", err)
-		return err
+		return nil, err
 	}
 
 	msgRaw, err := h.digestSignWithdrawMsg(destChainInstance, msg)
 	if err != nil {
 		h.l.Errorw("digest sign msg failed", "err", err)
-		return err
+		return nil, err
 	}
 	h.l.Debugw("", "broadcast_partial", round, "msg", shortSigStr([]byte(msg)))
 	currSig, err := h.crypto.SignPartial(msgRaw)
 	if err != nil {
 		h.l.Fatal("beacon_round", "err creating signature", "err", err, "round", round)
-		return err
+		return nil, err
 	}
 	h.l.Debugw("", "broadcast_partial", round, "raw_msg", shortSigStr(msgRaw))
 	metadata := common.NewMetadata(h.version.ToProto())
@@ -790,7 +788,7 @@ func (h *Handler) SignWithdrawProof(beaconID string, round uint64, msg string) e
 	for _, id := range h.crypto.GetGroup().Nodes {
 		select {
 		case <-ctx.Done():
-			return nil
+			return nil, nil
 		default:
 		}
 
@@ -816,37 +814,27 @@ func (h *Handler) SignWithdrawProof(beaconID string, round uint64, msg string) e
 
 	}
 
-	return nil
+	return msgRaw, nil
 }
 
 // RegisterCallback register callback for beacon
 func (h *Handler) RegisterCallback(round uint64, cb chan chain.Beacon) {
-	h.cbCache.Add(round, cb)
+	h.cbCache.Add(strconv.FormatUint(round, 10), cb)
 }
 
 // DeleteCallback callback for beacon
 func (h *Handler) DeleteCallback(round uint64) {
-	h.cbCache.Delete(round)
+	h.cbCache.Delete(strconv.FormatUint(round, 10))
 }
 
-// RegisterMintCallback register callback for mint bridge
-func (h *Handler) RegisterMintCallback(round uint64, cb chan chain.Beacon) {
-	h.mintCache.Add(round, cb)
+// RegisterBridgeCallback register callback for mint bridge
+func (h *Handler) RegisterBridgeCallback(key string, cb chan chain.Beacon) {
+	h.bridgeCache.Add(key, cb)
 }
 
-// DeleteMintCallback callback for mint bridge
-func (h *Handler) DeleteMintCallback(round uint64) {
-	h.mintCache.Delete(round)
-}
-
-// RegisterWithdrawCallback register callback for withdraw bridge
-func (h *Handler) RegisterWithdrawCallback(round uint64, cb chan chain.Beacon) {
-	h.withdrawCache.Add(round, cb)
-}
-
-// DeleteWithdrawCallback callback for withdraw bridge
-func (h *Handler) DeleteWithdrawCallback(round uint64) {
-	h.withdrawCache.Delete(round)
+// DeleteBridgeCallback callback for mint bridge
+func (h *Handler) DeleteBridgeCallback(key string) {
+	h.bridgeCache.Delete(key)
 }
 
 // ProcessPartialBeaconNoPeriod handler partial of beacon with no period time

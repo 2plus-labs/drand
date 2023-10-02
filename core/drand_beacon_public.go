@@ -284,12 +284,13 @@ func (bp *BeaconProcess) SignMintProof(ctx context.Context, in *drand.MintProofR
 	bp.log.Debugw("sign mint proof", "public_rand", addr, "round", currBeacon.Round, "reply", currBeacon.String())
 	nextRound := currBeacon.GetRound() + 1
 
-	if err := bp.beacon.SignMintProof(bp.beaconID, nextRound, in.GetMsg()); err != nil {
+	msgSign, err := bp.beacon.SignMintProof(bp.beaconID, nextRound, in.GetMsg())
+	if err != nil {
 		bp.log.Errorw("sign mint proof", "last_round", currBeacon.GetRound(), "sign_round", nextRound)
 		return nil, err
 	}
 
-	return &drand.MintProofResponse{Round: nextRound}, nil
+	return &drand.MintProofResponse{Round: nextRound, Msg: hex.EncodeToString(msgSign)}, nil
 }
 
 func (bp *BeaconProcess) SignWithdrawProof(ctx context.Context, in *drand.WithdrawProofRequest) (*drand.WithdrawProofResponse, error) {
@@ -311,10 +312,11 @@ func (bp *BeaconProcess) SignWithdrawProof(ctx context.Context, in *drand.Withdr
 	bp.log.Debugw("sign withdraw proof", "public_rand", addr, "round", currBeacon.Round, "reply", currBeacon.String())
 	nextRound := currBeacon.GetRound() + 1
 
-	if err := bp.beacon.SignWithdrawProof(bp.beaconID, nextRound, in.GetMsg()); err != nil {
+	msgSign, err := bp.beacon.SignWithdrawProof(bp.beaconID, nextRound, in.GetMsg())
+	if err != nil {
 		bp.log.Errorw("sign withdraw proof", "last_round", currBeacon.GetRound(), "sign_round", nextRound)
 		return nil, err
 	}
 
-	return &drand.WithdrawProofResponse{Round: nextRound}, nil
+	return &drand.WithdrawProofResponse{Round: nextRound, Msg: hex.EncodeToString(msgSign)}, nil
 }
