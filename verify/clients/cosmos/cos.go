@@ -42,19 +42,19 @@ func NewCoClient(cfg config.ChainInfo, logger log.Logger) (*CoClient, error) {
 	return ret, nil
 }
 
-func (c *CoClient) GetDomainTokenVault(action string) ([]byte, error) {
+func (c *CoClient) GetDomainTokenVault(action string) ([32]byte, error) {
 	accAddr, err := c.GetContractAddrBytes(c.VaultAddr)
 	if err != nil {
-		return nil, err
+		return [32]byte{}, err
 	}
 
 	return utils.GetDomain(accAddr, action, c.ChainID)
 }
 
-func (c *CoClient) GetDomainPeggedToken(action string) ([]byte, error) {
+func (c *CoClient) GetDomainPeggedToken(action string) ([32]byte, error) {
 	accAddr, err := c.GetContractAddrBytes(c.PegBridgeAddr)
 	if err != nil {
-		return nil, err
+		return [32]byte{}, err
 	}
 
 	return utils.GetDomain(accAddr, action, c.ChainID)
@@ -77,7 +77,12 @@ func (c *CoClient) GetMintDestChainId(mint *proto.Mint) (uint64, error) {
 
 func (c *CoClient) VerifyMintMsgOnDest(mint *proto.Mint) error {
 	// calculate mint id and check if it existed
-	mintId, err := utils.CalculateMintId(mint)
+	peggedAddr, err := c.GetContractAddrBytes(c.PegBridgeAddr)
+	if err != nil {
+		c.logger.Errorw("Failed to get pegged token address", "error", err)
+		return err
+	}
+	mintId, err := utils.CalculateMintId(mint, peggedAddr)
 	if err != nil {
 		c.logger.Errorw("Failed to calculate mint id", "error", err)
 		return err
@@ -112,7 +117,12 @@ func (c *CoClient) GetWithdrawDestChainId(withdraw *proto.Withdraw) (uint64, err
 
 func (c *CoClient) VerifyWithdrawMsgOnDest(withdraw *proto.Withdraw) error {
 	// calculate withdraw id and check if it existed
-	withdrawId, err := utils.CalculateWithdrawId(withdraw)
+	tokenVaultAdrr, err := c.GetContractAddrBytes(c.VaultAddr)
+	if err != nil {
+		c.logger.Errorw("Failed to get token vault address", "error", err)
+		return err
+	}
+	withdrawId, err := utils.CalculateWithdrawId(withdraw, tokenVaultAdrr)
 	if err != nil {
 		c.logger.Errorw("Failed to calculate withdraw id", "error", err)
 		return err

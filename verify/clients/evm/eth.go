@@ -62,12 +62,12 @@ func (c *EthClient) Close() {
 	c.client.Close()
 }
 
-func (c *EthClient) GetDomainTokenVault(action string) ([]byte, error) {
+func (c *EthClient) GetDomainTokenVault(action string) ([32]byte, error) {
 	vAddr := common.HexToAddress(c.VaultAddr)
 	return utils.GetDomain(vAddr.Bytes(), action, c.ChainID)
 }
 
-func (c *EthClient) GetDomainPeggedToken(action string) ([]byte, error) {
+func (c *EthClient) GetDomainPeggedToken(action string) ([32]byte, error) {
 	pAddr := common.HexToAddress(c.PegBridgeAddr)
 	return utils.GetDomain(pAddr.Bytes(), action, c.ChainID)
 }
@@ -92,7 +92,7 @@ func (c *EthClient) GetMintDestChainId(mint *proto.Mint) (uint64, error) {
 // VerifyMintMsgOnDest verify tx from src chain exited (deposit tx into vault)
 func (c *EthClient) VerifyMintMsgOnDest(mint *proto.Mint) error {
 	// calculate mintId and check mintId is existed or not on the destination chain
-	mintId, err := utils.CalculateMintId(mint)
+	mintId, err := utils.CalculateMintId(mint, common.HexToAddress(c.PegBridgeAddr).Bytes())
 	if err != nil {
 		c.logger.Errorw("Failed to calculate mint id", "error", err)
 		return err
@@ -130,7 +130,7 @@ func (c *EthClient) GetWithdrawDestChainId(withdraw *proto.Withdraw) (uint64, er
 // VerifyWithdrawMsgOnDest verify msg withdraw do not use before
 func (c *EthClient) VerifyWithdrawMsgOnDest(withdraw *proto.Withdraw) error {
 	// calculate withdrawId and check withdrawId is existed or not on the destination chain
-	withdrawId, err := utils.CalculateWithdrawId(withdraw)
+	withdrawId, err := utils.CalculateWithdrawId(withdraw, common.HexToAddress(c.VaultAddr).Bytes())
 	if err != nil {
 		c.logger.Errorw("Failed to calculate withdraw id", "error", err)
 		return err

@@ -20,10 +20,10 @@ type BridgeMsg interface {
 	VerifyMintMsgOnDest(mint *proto.Mint) error
 
 	// GetDomainTokenVault returns the domain of the message
-	GetDomainTokenVault(action string) ([]byte, error)
+	GetDomainTokenVault(action string) ([32]byte, error)
 
 	// GetDomainPeggedToken returns the domain of the message
-	GetDomainPeggedToken(action string) ([]byte, error)
+	GetDomainPeggedToken(action string) ([32]byte, error)
 
 	// GetWithdrawDestChainId returns the destination chain id of the withdraw message
 	// it will be checking have burn on pegged smart contract by refId
