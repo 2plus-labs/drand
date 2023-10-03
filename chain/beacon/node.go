@@ -902,13 +902,14 @@ func (h *Handler) decodeMintMsg(in string) (*bridgeproto.Mint, error) {
 		h.l.Errorw("decode msg failed", "err", err)
 		return nil, err
 	}
-	mintMsg := &bridgeproto.Mint{}
-	err = json.Unmarshal(dataMsg, mintMsg)
+
+	var mintMsg bridgeproto.Mint
+	err = json.Unmarshal(dataMsg, &mintMsg)
 	if err != nil {
 		h.l.Errorw("unmarshal msg failed", "err", err)
 		return nil, err
 	}
-	return mintMsg, nil
+	return &mintMsg, nil
 }
 
 func (h *Handler) decodeWithdrawMsg(in string) (*bridgeproto.Withdraw, error) {
@@ -917,13 +918,14 @@ func (h *Handler) decodeWithdrawMsg(in string) (*bridgeproto.Withdraw, error) {
 		h.l.Errorw("decode msg failed", "err", err)
 		return nil, err
 	}
-	withdrawMsg := &bridgeproto.Withdraw{}
-	err = json.Unmarshal(dataMsg, withdrawMsg)
+
+	var withdrawMsg bridgeproto.Withdraw
+	err = json.Unmarshal(dataMsg, &withdrawMsg)
 	if err != nil {
 		h.l.Errorw("unmarshal msg failed", "err", err)
 		return nil, err
 	}
-	return withdrawMsg, nil
+	return &withdrawMsg, nil
 }
 
 func (h *Handler) digestSignMintMsg(destChain verify.BridgeMsg, msg string) ([]byte, error) {

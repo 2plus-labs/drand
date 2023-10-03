@@ -13,3 +13,11 @@ bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
 vault_bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
 peg_bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
 type = "EVM"
+
+[tplus_chain]
+chain_id = "1122"
+rpc_url = "http://localhost:26657"
+bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
+vault_bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
+peg_bridge_addr = "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f"
+type = "COSMOS"

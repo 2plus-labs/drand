@@ -110,9 +110,9 @@ func defaultBSCChainInfo() ChainInfo {
 	return ChainInfo{
 		ChainId:         BSCChainId,
 		RPC:             "https://bsc-dataseed.binance.org",
-		BridgeAddr:      "",
-		VaultBridgeAddr: "",
-		PegBridgeAddr:   "",
+		BridgeAddr:      "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f",
+		VaultBridgeAddr: "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f",
+		PegBridgeAddr:   "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f",
 		Type:            EVM,
 	}
 }
@@ -142,7 +142,7 @@ func defaultPolyChainInfo() ChainInfo {
 func defaultTPLUSChainInfo() ChainInfo {
 	return ChainInfo{
 		ChainId:         TPLUSChainId,
-		RPC:             "https://rpc.tplus.money",
+		RPC:             "http://localhost:26657",
 		BridgeAddr:      "",
 		VaultBridgeAddr: "",
 		PegBridgeAddr:   "",

@@ -357,6 +357,9 @@ func (c *chainStore) signAndSend(packet *drand.PartialBeaconPacket) {
 		Round:   packet.GetRound(),
 		Message: msg,
 	})
+	if c.conf.Group.Scheme.Name == crypto.BN256SchemeID {
+		rawMsg = msg
+	}
 
 	currSig, err := c.crypto.SignPartial(rawMsg)
 	if err != nil {

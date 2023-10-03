@@ -98,9 +98,14 @@ func New(ctx context.Context, version string, logger log.Logger) (*DrandHandler,
 	mux.HandleFunc("/health", withCommonHeaders(version, handler.Health))
 	mux.HandleFunc("/chains", withCommonHeaders(version, handler.ChainHashes))
 
+	// API for cosign
 	mux.Post("/{"+chainHashParamKey+"}/cosign", withCommonHeaders(version, handler.CoSign))
 	mux.HandleFunc("/{"+chainHashParamKey+"}/public/cosign/{"+roundParamKey+"}", withCommonHeaders(version, handler.PublicSign))
 	mux.HandleFunc("/{"+chainHashParamKey+"}/public/cosign/latest", withCommonHeaders(version, handler.LatestSign))
+
+	// API for bridge
+	mux.Post("/{"+chainHashParamKey+"}/mintproof", withCommonHeaders(version, handler.MintProof))
+	mux.Post("/{"+chainHashParamKey+"}/withdrawproof", withCommonHeaders(version, handler.WithdrawProof))
 
 	handler.httpHandler = promhttp.InstrumentHandlerCounter(
 		metrics.HTTPCallCounter,
@@ -787,4 +792,96 @@ func (h *DrandHandler) LatestSign(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 	w.Header().Set("Expires", time.Now().Add(7*24*time.Hour).Format(http.TimeFormat))
 	http.ServeContent(w, r, "rand.json", time.Time{}, bytes.NewReader(data))
+}
+
+func (h *DrandHandler) MintProof(w http.ResponseWriter, r *http.Request) {
+	errResp := dto.ErrorResp{}
+	chainHashHex, err := readChainHash(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	bh, err := h.getBeaconHandler(chainHashHex)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), h.timeout)
+	defer cancel()
+
+	mintProof := &dto.MintProof{}
+	if err := json.NewDecoder(r.Body).Decode(mintProof); err != nil {
+		errResp.Err = err.Error()
+		h.log.Errorw("sign mint parser input request fail", "chain_hash", chainHashHex)
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+		return
+	}
+
+	resp, err := bh.client.SignMintProof(ctx, mintProof.MintMsg)
+	if err != nil {
+		errResp.Err = err.Error()
+		h.log.Errorw("sign-mint", "message", mintProof.MintMsg)
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+		return
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		errResp.Err = err.Error()
+		h.log.Errorw("sign-mint: marshal fail", "message", resp.Message(), "sig", resp.Signature())
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache")
+	_, _ = w.Write(data)
+}
+
+func (h *DrandHandler) WithdrawProof(w http.ResponseWriter, r *http.Request) {
+	errResp := dto.ErrorResp{}
+	chainHashHex, err := readChainHash(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	bh, err := h.getBeaconHandler(chainHashHex)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), h.timeout)
+	defer cancel()
+
+	withdrawProof := &dto.WithdrawProof{}
+	if err := json.NewDecoder(r.Body).Decode(withdrawProof); err != nil {
+		errResp.Err = err.Error()
+		h.log.Errorw("sign withdraw parser input request fail", "chain_hash", chainHashHex)
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+		return
+	}
+
+	resp, err := bh.client.SignMintProof(ctx, withdrawProof.WithdrawMsg)
+	if err != nil {
+		errResp.Err = err.Error()
+		h.log.Errorw("sign-withdraw", "message", withdrawProof.WithdrawMsg)
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+		return
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		errResp.Err = err.Error()
+		h.log.Errorw("sign-withdraw: marshal fail", "message", resp.Message(), "sig", resp.Signature())
+		http.Error(w, errResp.ToString(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache")
+	_, _ = w.Write(data)
 }
