@@ -5,6 +5,7 @@ type ProofResultData struct {
 	Sig       []byte `json:"signature,omitempty"`
 	RoundId   uint64 `json:"round_id,omitempty"`
 	PublicKey []byte `json:"public_key,omitempty"`
+	PubKeyStr string `json:"pub_key_str,omitempty"`
 }
 
 func (p *ProofResultData) Message() string {
@@ -21,4 +22,8 @@ func (p *ProofResultData) Round() uint64 {
 
 func (p *ProofResultData) PubKey() []byte {
 	return p.PublicKey
+}
+
+func (p *ProofResultData) PubKeyOrg() string {
+	return p.PubKeyStr
 }

@@ -7,81 +7,37 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func CalculateMintId(mint *proto.Mint, peggedAddr []byte) ([32]byte, error) {
-	//uint64Ty, err := abi.NewType("uint", "uint64", nil)
-	//if err != nil {
-	//	return [32]byte{}, err
-	//}
-	//uint256Ty, err := abi.NewType("uint256", "", nil)
-	//if err != nil {
-	//	return [32]byte{}, err
-	//}
-	//bytes32Ty, err := abi.NewType("bytes32", "", nil)
-	//if err != nil {
-	//	return [32]byte{}, err
-	//}
-	//addressTy, err := abi.NewType("address", "", nil)
-	//if err != nil {
-	//	return [32]byte{}, err
-	//}
-	//arguments := abi.Arguments{
-	//	{
-	//		Name: "token",
-	//		Type: addressTy,
-	//	},
-	//	{
-	//		Name: "account",
-	//		Type: addressTy,
-	//	},
-	//	{
-	//		Name: "amount",
-	//		Type: uint256Ty,
-	//	},
-	//	{
-	//		Name: "depositor",
-	//		Type: addressTy,
-	//	},
-	//	{
-	//		Name: "refChainId",
-	//		Type: uint64Ty,
-	//	},
-	//	{
-	//		Name: "refId",
-	//		Type: bytes32Ty,
-	//	},
-	//}
-	//
-	//bytes, err := arguments.Pack(
-	//	common.HexToAddress(mint.Token),
-	//	[32]byte{'I', 'D', '1'},
-	//	big.NewInt(42),
-	//)
+func CalculateMintIdV1(mint *proto.Mint) ([32]byte, error) {
 	refChainId := make([]byte, 8)
-	binary.LittleEndian.PutUint64(refChainId, mint.RefChainId)
+	binary.BigEndian.PutUint64(refChainId, mint.RefChainId)
+	var amount [32]byte
+	from := 32 - len(mint.Amount)
+	copy(amount[from:], mint.Amount)
 	dataHash := encodePacked(
 		mint.Account,
 		mint.Token,
-		mint.Amount,
+		amount[:],
 		mint.Depositor,
 		refChainId,
 		mint.RefId,
-		peggedAddr,
 	)
 
 	return crypto.Keccak256Hash(dataHash), nil
 }
 
-func CalculateWithdrawId(withdraw *proto.Withdraw, tokenVaultAddr []byte) ([32]byte, error) {
+func CalculateWithdrawIdV1(withdraw *proto.Withdraw) ([32]byte, error) {
 	refChainId := make([]byte, 8)
-	binary.LittleEndian.PutUint64(refChainId, withdraw.RefChainId)
+	binary.BigEndian.PutUint64(refChainId, withdraw.RefChainId)
+	var amount [32]byte
+	from := 32 - len(withdraw.Amount)
+	copy(amount[from:], withdraw.Amount)
 	dataHash := encodePacked(
 		withdraw.Receiver,
 		withdraw.Token,
-		withdraw.Amount,
+		amount[:],
 		withdraw.BurnAccount,
 		refChainId,
 		withdraw.RefId,
-		tokenVaultAddr,
 	)
 	return crypto.Keccak256Hash(dataHash), nil
 }
@@ -92,7 +48,7 @@ func EncodeMsgSign(domain [32]byte, msgRaw []byte) ([]byte, error) {
 
 func GetDomain(addr []byte, action string, chainId uint64) ([32]byte, error) {
 	chainIdBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(chainIdBytes, chainId)
+	binary.BigEndian.PutUint64(chainIdBytes, chainId)
 	return crypto.Keccak256Hash(encodePacked(chainIdBytes, addr, []byte(action))), nil
 }
 

@@ -87,12 +87,7 @@ func (c *CoClient) VerifyMintMsgOnDest(mint *proto.Mint) error {
 	}
 
 	// calculate mint id and check if it existed
-	peggedAddr, err := c.GetContractAddrBytes(c.PegBridgeAddr)
-	if err != nil {
-		c.logger.Errorw("Failed to get pegged token address", "error", err)
-		return err
-	}
-	mintId, err := utils.CalculateMintId(mint, peggedAddr)
+	mintId, err := utils.CalculateMintIdV1(mint)
 	if err != nil {
 		c.logger.Errorw("Failed to calculate mint id", "error", err)
 		return err
@@ -127,12 +122,7 @@ func (c *CoClient) GetWithdrawDestChainId(withdraw *proto.Withdraw) (uint64, err
 
 func (c *CoClient) VerifyWithdrawMsgOnDest(withdraw *proto.Withdraw) error {
 	// calculate withdraw id and check if it existed
-	tokenVaultAdrr, err := c.GetContractAddrBytes(c.VaultAddr)
-	if err != nil {
-		c.logger.Errorw("Failed to get token vault address", "error", err)
-		return err
-	}
-	withdrawId, err := utils.CalculateWithdrawId(withdraw, tokenVaultAdrr)
+	withdrawId, err := utils.CalculateWithdrawIdV1(withdraw)
 	if err != nil {
 		c.logger.Errorw("Failed to calculate withdraw id", "error", err)
 		return err

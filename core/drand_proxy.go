@@ -93,7 +93,6 @@ func (d *drandProxy) SignMintProof(ctx context.Context, msg string) (client.Proo
 	res := <-result
 
 	buff, _ := bp.group.PublicKey.Key().MarshalBinary()
-	bp.group.PublicKey.Key().String()
 
 	bp.beacon.DeleteBridgeCallback(keyCache)
 
@@ -102,6 +101,7 @@ func (d *drandProxy) SignMintProof(ctx context.Context, msg string) (client.Proo
 		Sig:       res.GetSignature(),
 		RoundId:   res.GetRound(),
 		PublicKey: buff,
+		PubKeyStr: bp.group.PublicKey.Key().String(),
 	}, nil
 }
 
@@ -130,6 +130,7 @@ func (d *drandProxy) SignWithdrawProof(ctx context.Context, msg string) (client.
 		Sig:       res.GetSignature(),
 		RoundId:   res.GetRound(),
 		PublicKey: buff,
+		PubKeyStr: bp.group.PublicKey.Key().String(),
 	}, nil
 }
 

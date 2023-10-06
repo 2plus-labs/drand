@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	IsTest = true
+	IsTest = false
 )
 
 type EthClient struct {
@@ -105,7 +105,7 @@ func (c *EthClient) VerifyMintMsgOnDest(mint *proto.Mint) error {
 	}
 
 	// calculate mintId and check mintId is existed or not on the destination chain
-	mintId, err := utils.CalculateMintId(mint, common.HexToAddress(c.PegBridgeAddr).Bytes())
+	mintId, err := utils.CalculateMintIdV1(mint)
 	if err != nil {
 		c.logger.Errorw("Failed to calculate mint id", "error", err)
 		return err
@@ -143,7 +143,7 @@ func (c *EthClient) GetWithdrawDestChainId(withdraw *proto.Withdraw) (uint64, er
 // VerifyWithdrawMsgOnDest verify msg withdraw do not use before
 func (c *EthClient) VerifyWithdrawMsgOnDest(withdraw *proto.Withdraw) error {
 	// calculate withdrawId and check withdrawId is existed or not on the destination chain
-	withdrawId, err := utils.CalculateWithdrawId(withdraw, common.HexToAddress(c.VaultAddr).Bytes())
+	withdrawId, err := utils.CalculateWithdrawIdV1(withdraw)
 	if err != nil {
 		c.logger.Errorw("Failed to calculate withdraw id", "error", err)
 		return err

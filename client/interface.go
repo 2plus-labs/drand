@@ -69,4 +69,5 @@ type ProofResult interface {
 	Signature() []byte
 	Round() uint64
 	PubKey() []byte
+	PubKeyOrg() string
 }
