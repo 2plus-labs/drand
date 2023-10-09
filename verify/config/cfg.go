@@ -8,9 +8,11 @@ import (
 )
 
 const (
-	EthChainId   = 1
-	BSCChainId   = 56
-	PolyChainId  = 137
+	EthChainId = 1
+	//BSCChainId   = 56
+	BSCChainId = 97
+	//PolyChainId  = 137
+	PolyChainId  = 80001
 	TPLUSChainId = 1122
 
 	DefaultGasLimit = 3000000
@@ -109,10 +111,10 @@ func NewCfgClient(cfgPath ...string) (*CfgClient, error) {
 func defaultBSCChainInfo() ChainInfo {
 	return ChainInfo{
 		ChainId:         BSCChainId,
-		RPC:             "https://bsc-dataseed.binance.org",
-		BridgeAddr:      "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f",
-		VaultBridgeAddr: "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f",
-		PegBridgeAddr:   "0x4C6Aa7E4788aF957E3FEa0B6eDc8E28b1f8a7d8f",
+		RPC:             "https://bsc-testnet.nodereal.io/v1/73d5dedd6b0f40ecb167818a2586682b",
+		BridgeAddr:      "0xe81eA3FC8B06154D89abD28f4811225a953b2FCD",
+		VaultBridgeAddr: "0x6c48912Fead677275CB08101e604Af7789868dfD",
+		PegBridgeAddr:   "0x1F83f4E2ef9185EA4c5d1bF516202640f83EC150",
 		Type:            EVM,
 	}
 }
@@ -131,10 +133,10 @@ func defaultEthChainInfo() ChainInfo {
 func defaultPolyChainInfo() ChainInfo {
 	return ChainInfo{
 		ChainId:         PolyChainId,
-		RPC:             "https://rpc-mainnet.maticvigil.com",
-		BridgeAddr:      "",
-		VaultBridgeAddr: "",
-		PegBridgeAddr:   "",
+		RPC:             "https://rpc-mumbai.maticvigil.com",
+		BridgeAddr:      "0xf04ed13b38C98dA9369B75C883A2EB37983BE4dD",
+		VaultBridgeAddr: "0xaF7cea571544109481B7B82d2ed8ee2Cd3339a1F",
+		PegBridgeAddr:   "0x5225cbb2440dbA3Fb84191Ba5dC84e17133488Da",
 		Type:            EVM,
 	}
 }

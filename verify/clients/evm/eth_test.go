@@ -1,7 +1,9 @@
 package evm
 
 import (
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"github.com/drand/drand/log"
 	"github.com/drand/drand/verify/config"
 	"github.com/drand/drand/verify/proto"
@@ -19,10 +21,10 @@ func newClient() *EthClient {
 	//PeggedTokenBridgeV2=0x9216fC92F4Cf71d4c3Cc5f7A4bA5e742d2890a1c
 	ethCfg := config.ChainInfo{
 		ChainId: config.BSCChainId,
-		//RPC:             "https://data-seed-prebsc-1-s1.binance.org:8545/", // testnet
-		RPC:             "https://bsc-dataseed1.binance.org/", // mainnet
+		RPC:     "https://data-seed-prebsc-1-s1.binance.org:8545/", // testnet
+		//RPC:             "https://bsc-dataseed1.binance.org/", // mainnet
 		BridgeAddr:      "0xA73F5eb34679D7b8fA3a9084bE23F5F44aeb07dB",
-		VaultBridgeAddr: "0x78bc5Ee9F11d133A08b331C2e18fE81BE0Ed02DC",
+		VaultBridgeAddr: "0x6c48912Fead677275CB08101e604Af7789868dfD",
 		PegBridgeAddr:   "0x9216fC92F4Cf71d4c3Cc5f7A4bA5e742d2890a1c",
 		Type:            config.EVM,
 	}
@@ -69,6 +71,26 @@ func TestEthClient_GetMintDestChainId(t *testing.T) {
 	}
 
 	chainId, err := evmClient.GetMintDestChainId(mint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(chainId)
+}
+
+func TestEthClient_GetMintDestChainId2(t *testing.T) {
+	inputBase64Str := "eyJ0b2tlbiI6InJoUFppZHJDOE42LzlHQ3NFU3FEZkltNnA4MD0iLCJhY2NvdW50IjoiVmRTQWNSaG5GSDlVUzVzUGMxTVNOdzNCdHpVPSIsImFtb3VudCI6IkE0MStwTWFBQUE9PSIsImRlcG9zaXRvciI6IlZkU0FjUmhuRkg5VVM1c1BjMU1TTnczQnR6VT0iLCJyZWZfaWQiOiJWTnBlRmdjVnJyaFJsUU5OZXdpZGpxclh3MGI2NGpiekhTcTdSeEpCRHZvPSJ9"
+	data, err := base64.StdEncoding.DecodeString(inputBase64Str)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var mint proto.Mint
+	if err := json.Unmarshal(data, &mint); err != nil {
+		t.Fatal(err)
+	}
+
+	evmClient := newClient()
+	chainId, err := evmClient.GetMintDestChainId(&mint)
 	if err != nil {
 		t.Fatal(err)
 	}

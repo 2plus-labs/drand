@@ -25,6 +25,25 @@ func CalculateMintIdV1(mint *proto.Mint) ([32]byte, error) {
 	return crypto.Keccak256Hash(dataHash), nil
 }
 
+func CalculateMintIdV2(mint *proto.Mint, peggedAddr []byte) ([32]byte, error) {
+	refChainId := make([]byte, 8)
+	binary.BigEndian.PutUint64(refChainId, mint.RefChainId)
+	var amount [32]byte
+	from := 32 - len(mint.Amount)
+	copy(amount[from:], mint.Amount)
+	dataHash := encodePacked(
+		mint.Account,
+		mint.Token,
+		amount[:],
+		mint.Depositor,
+		refChainId,
+		mint.RefId,
+		peggedAddr,
+	)
+
+	return crypto.Keccak256Hash(dataHash), nil
+}
+
 func CalculateWithdrawIdV1(withdraw *proto.Withdraw) ([32]byte, error) {
 	refChainId := make([]byte, 8)
 	binary.BigEndian.PutUint64(refChainId, withdraw.RefChainId)
@@ -38,6 +57,24 @@ func CalculateWithdrawIdV1(withdraw *proto.Withdraw) ([32]byte, error) {
 		withdraw.BurnAccount,
 		refChainId,
 		withdraw.RefId,
+	)
+	return crypto.Keccak256Hash(dataHash), nil
+}
+
+func CalculateWithdrawIdV2(withdraw *proto.Withdraw, tokenVaultAddr []byte) ([32]byte, error) {
+	refChainId := make([]byte, 8)
+	binary.BigEndian.PutUint64(refChainId, withdraw.RefChainId)
+	var amount [32]byte
+	from := 32 - len(withdraw.Amount)
+	copy(amount[from:], withdraw.Amount)
+	dataHash := encodePacked(
+		withdraw.Receiver,
+		withdraw.Token,
+		amount[:],
+		withdraw.BurnAccount,
+		refChainId,
+		withdraw.RefId,
+		tokenVaultAddr,
 	)
 	return crypto.Keccak256Hash(dataHash), nil
 }

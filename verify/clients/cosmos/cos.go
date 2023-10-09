@@ -14,7 +14,7 @@ import (
 	"net/http"
 )
 
-var IsTest = true
+var IsTest = false
 
 type CoClient struct {
 	client     *http.Client

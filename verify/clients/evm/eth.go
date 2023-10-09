@@ -90,6 +90,8 @@ func (c *EthClient) GetMintDestChainId(mint *proto.Mint) (uint64, error) {
 		c.logger.Errorw("Failed to call contract token vault get record", "error", err)
 		return 0, err
 	}
+	temp := destChainId.String()
+	c.logger.Debugw("GetMintDestChainId", "refId", mint.RefId, "destChainId", temp)
 	if destChainId.Int64() == 0 {
 		c.logger.Errorw("deposit id not existed", "refId", mint.RefId)
 		return 0, fmt.Errorf("deposit id not existed")
@@ -105,7 +107,7 @@ func (c *EthClient) VerifyMintMsgOnDest(mint *proto.Mint) error {
 	}
 
 	// calculate mintId and check mintId is existed or not on the destination chain
-	mintId, err := utils.CalculateMintIdV1(mint)
+	mintId, err := utils.CalculateMintIdV2(mint, common.HexToAddress(c.PegBridgeAddr).Bytes())
 	if err != nil {
 		c.logger.Errorw("Failed to calculate mint id", "error", err)
 		return err
@@ -143,7 +145,7 @@ func (c *EthClient) GetWithdrawDestChainId(withdraw *proto.Withdraw) (uint64, er
 // VerifyWithdrawMsgOnDest verify msg withdraw do not use before
 func (c *EthClient) VerifyWithdrawMsgOnDest(withdraw *proto.Withdraw) error {
 	// calculate withdrawId and check withdrawId is existed or not on the destination chain
-	withdrawId, err := utils.CalculateWithdrawIdV1(withdraw)
+	withdrawId, err := utils.CalculateWithdrawIdV2(withdraw, common.HexToAddress(c.VaultAddr).Bytes())
 	if err != nil {
 		c.logger.Errorw("Failed to calculate withdraw id", "error", err)
 		return err
